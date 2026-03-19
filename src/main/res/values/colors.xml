@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Dark theme surfaces -->
+    <color name="bg_dark">#0F1115</color>
+    <color name="surface_dark">#171A21</color>
+    <color name="surface_dark_2">#1E222B</color>
+
+    <!-- Text -->
+    <color name="text_primary_dark">#E8EAF0</color>
+    <color name="text_secondary_dark">#AEB6C5</color>
+
+    <!-- Accent (Systems One-ish red) -->
+    <color name="accent_red">#E53935</color>
+
+    <!-- Input stroke / divider -->
+    <color name="outline_dark">#2B3140</color>
+</resources>

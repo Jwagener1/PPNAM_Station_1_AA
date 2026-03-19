@@ -253,8 +253,8 @@ class MainActivity : AppCompatActivity() {
         binding.etAssignmentTagId.onFocusChangeListener = rfidFocusListener
     }
 
-    override fun dispatchKeyEvent(event: KeyEvent?): Boolean {
-        val keyCode = event?.keyCode ?: return super.dispatchKeyEvent(event)
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        val keyCode = event.keyCode
         if (keyCode == 139 || keyCode == 280) {
             Log.i(TAG, "dispatchKeyEvent: keyCode=$keyCode action=${event.action} isRfidMode=$isRfidMode")
             if (isRfidMode) {

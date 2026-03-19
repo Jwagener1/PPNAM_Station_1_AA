@@ -13,7 +13,8 @@
     <string name="tab_bag_weight">Bag Weight</string>
     <string name="tab_tag_assignment">Tag Assignment</string>
 
-    <string name="hint_tag_id">Tag ID (Barcode)</string>
+    <string name="hint_tag_id">RFID Tag ID</string>
+    <string name="hint_barcode">Barcode</string>
     <string name="hint_bag_weight">Bag Weight</string>
     <string name="hint_scan_tag">Scan Tag</string>
 

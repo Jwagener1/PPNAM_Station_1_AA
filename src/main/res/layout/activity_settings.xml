@@ -35,6 +35,25 @@
             android:textColor="@color/text_primary_dark" />
     </com.google.android.material.textfield.TextInputLayout>
 
+    <com.google.android.material.textfield.TextInputLayout
+        android:id="@+id/tilRfidPower"
+        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:hint="RFID Power (5-30 dBm)"
+        app:boxStrokeColor="@color/outline_dark"
+        app:hintTextColor="@color/text_secondary_dark"
+        app:layout_constraintTop_toBottomOf="@id/tilDeviceId">
+
+        <com.google.android.material.textfield.TextInputEditText
+            android:id="@+id/etSettingsRfidPower"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:inputType="number"
+            android:textColor="@color/text_primary_dark" />
+    </com.google.android.material.textfield.TextInputLayout>
+
     <TextView
         android:id="@+id/tvModeLabel"
         android:layout_width="wrap_content"
@@ -42,7 +61,7 @@
         android:layout_marginTop="24dp"
         android:text="Operation Mode"
         android:textColor="@color/text_secondary_dark"
-        app:layout_constraintTop_toBottomOf="@id/tilDeviceId"
+        app:layout_constraintTop_toBottomOf="@id/tilRfidPower"
         app:layout_constraintStart_toStartOf="parent" />
 
     <RadioGroup

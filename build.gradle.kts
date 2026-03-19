@@ -40,7 +40,6 @@ android {
         viewBinding = true
     }
 
-    // ✅ FIX: Netty duplicate META-INF/INDEX.LIST (HiveMQ uses Netty)
     packaging {
         resources {
             excludes += "META-INF/INDEX.LIST"
@@ -60,6 +59,9 @@ dependencies {
     implementation(libs.androidx.constraintlayout)
     implementation(libs.hivemq.mqtt.client)
     implementation(libs.netty.codec.http)
+    
+    // Chainway SDK
+    implementation(fileTree("libs") { include("*.aar") })
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

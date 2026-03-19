@@ -2,16 +2,15 @@ package com.sysone.scanner
 
 import android.content.Context
 import android.content.Intent
+import android.os.AsyncTask
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
 import android.view.KeyEvent
-import android.view.LayoutInflater
 import android.view.WindowManager
 import android.widget.ArrayAdapter
 import android.widget.EditText
-import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.enableEdgeToEdge
 import androidx.annotation.StringRes
@@ -19,7 +18,6 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
-import com.google.android.material.tabs.TabLayout
 import com.google.android.material.textfield.TextInputEditText
 import com.hivemq.client.mqtt.MqttClient
 import com.hivemq.client.mqtt.MqttClientState
@@ -34,10 +32,16 @@ import java.time.format.DateTimeFormatter
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.math.min
-import kotlin.random.Random
 import android.text.Editable
 import android.text.TextWatcher
 import android.view.View
+
+// Chainway SDK Imports
+import com.rscja.barcode.BarcodeDecoder
+import com.rscja.barcode.BarcodeFactory
+import com.rscja.deviceapi.RFIDWithUHFUART
+import com.rscja.deviceapi.interfaces.IUHFInventoryCallback
+import com.rscja.deviceapi.entity.UHFTAGInfo
 
 class MainActivity : AppCompatActivity() {
 
@@ -52,15 +56,19 @@ class MainActivity : AppCompatActivity() {
     private var deviceId = "C72-001"
     private var baseTopic = "PPNAM/$deviceId"
     private var statusTopic = "$baseTopic/status"
+    private var rfidPower = 30
 
     private val scanIdleAdvanceMs = 120L
-    private val moveDebounceMs = 350L
 
     private var mqtt: Mqtt3AsyncClient? = null
     private val uiHandler = Handler(Looper.getMainLooper())
 
-    private var lastMoveAtMs = 0L
     private var currentSubTopic = "bag_weight"
+
+    // Hardware Instances
+    private var mReader: RFIDWithUHFUART? = null
+    private var mBarcodeDecoder: BarcodeDecoder? = null
+    private var isRfidInventoryRunning = false
 
     enum class ConnectionStatus(@get:StringRes val stringResId: Int, val dotDrawableResId: Int) {
         ONLINE(R.string.status_online, R.drawable.status_dot_green),
@@ -98,26 +106,143 @@ class MainActivity : AppCompatActivity() {
         setupWeightsSpinner()
         
         disableSoftKeyboard(binding.etBagTagId)
+        disableSoftKeyboard(binding.etBagBarcode)
         disableSoftKeyboard(binding.etAssignmentTagId)
 
         setupAutoSend(binding.etAssignmentTagId)
+        setupHardwareSwitching()
 
         binding.btnSubmitWeight.setOnClickListener { onSubmitBagWeight() }
-
         binding.imgLogo.setOnClickListener { showPasswordDialog() }
 
         updateStatusUI(ConnectionStatus.CONNECTING)
         initMqttAndConnect()
+        
+        initHardware()
     }
 
     private fun loadSettings() {
         val prefs = getSharedPreferences("settings", Context.MODE_PRIVATE)
         deviceId = prefs.getString("device_id", "C72-001") ?: "C72-001"
+        rfidPower = prefs.getInt("rfid_power", 30)
         baseTopic = "PPNAM/$deviceId"
         statusTopic = "$baseTopic/status"
         
         val mode = prefs.getString("mode", "BAG_WEIGHT")
         currentSubTopic = if (mode == "TAG_ASSIGNMENT") "assignment" else "bag_weight"
+    }
+
+    private fun initHardware() {
+        AsyncTask.execute {
+            try {
+                // Initialize RFID
+                mReader = RFIDWithUHFUART.getInstance()
+                val rfidInit = mReader?.init(this@MainActivity) ?: false
+                
+                if (rfidInit) {
+                    mReader?.setInventoryCallback(object : IUHFInventoryCallback {
+                        override fun callback(tag: UHFTAGInfo) {
+                            this@MainActivity.runOnUiThread { onTagRead(tag.epc) }
+                        }
+                    })
+                }
+
+                // Initialize Barcode
+                mBarcodeDecoder = BarcodeFactory.getInstance().barcodeDecoder
+                val barcodeOpen = mBarcodeDecoder?.open(this@MainActivity) ?: false
+
+                this@MainActivity.runOnUiThread {
+                    if (rfidInit) {
+                        applyRfidPower()
+                    } else {
+                        showToast("RFID Init Failed")
+                    }
+                    if (!barcodeOpen) {
+                        showToast("Barcode Init Failed")
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Hardware Init Error", e)
+            }
+        }
+    }
+
+    private fun applyRfidPower() {
+        AsyncTask.execute {
+            val result = mReader?.setPower(rfidPower) ?: false
+            Log.d(TAG, "Setting RFID Power to $rfidPower: $result")
+        }
+    }
+
+    private fun startRfidInventory() {
+        if (isRfidInventoryRunning) return
+        AsyncTask.execute {
+            if (mReader?.startInventoryTag() == true) {
+                isRfidInventoryRunning = true
+                Log.d(TAG, "RFID Inventory Started")
+            }
+        }
+    }
+
+    private fun stopRfidInventory() {
+        if (!isRfidInventoryRunning) return
+        AsyncTask.execute {
+            if (mReader?.stopInventory() == true) {
+                isRfidInventoryRunning = false
+                Log.d(TAG, "RFID Inventory Stopped")
+            }
+        }
+    }
+
+    private fun onTagRead(epc: String) {
+        if (binding.etBagTagId.hasFocus()) {
+            binding.etBagTagId.setText(epc)
+        } else if (binding.etAssignmentTagId.hasFocus()) {
+            binding.etAssignmentTagId.setText(epc)
+        }
+    }
+
+    private fun setupHardwareSwitching() {
+        binding.etBagBarcode.setOnFocusChangeListener { _, hasFocus ->
+            if (hasFocus) {
+                mBarcodeDecoder?.setDecodeCallback { barcodeEntity ->
+                    if (barcodeEntity.resultCode == BarcodeDecoder.DECODE_SUCCESS) {
+                        this@MainActivity.runOnUiThread { 
+                            binding.etBagBarcode.setText(barcodeEntity.barcodeData)
+                            binding.etBagBarcode.clearFocus() 
+                        }
+                    }
+                }
+            } else {
+                mBarcodeDecoder?.stopScan()
+            }
+        }
+    }
+
+    override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
+        if (keyCode == 139 || keyCode == 280) {
+            if (binding.etBagBarcode.hasFocus()) {
+                mBarcodeDecoder?.startScan()
+                return true
+            } else if (binding.etBagTagId.hasFocus() || binding.etAssignmentTagId.hasFocus()) {
+                startRfidInventory()
+                return true
+            }
+        }
+        return super.onKeyDown(keyCode, event)
+    }
+
+    override fun onKeyUp(keyCode: Int, event: KeyEvent?): Boolean {
+        if (keyCode == 139 || keyCode == 280) {
+            if (binding.etBagBarcode.hasFocus()) {
+                mBarcodeDecoder?.stopScan()
+                return true
+            } else if (binding.etBagTagId.hasFocus() || binding.etAssignmentTagId.hasFocus()) {
+                stopRfidInventory()
+                return true
+            }
+        }
+        return super.onKeyUp(keyCode, event)
     }
 
     private fun showPasswordDialog() {
@@ -205,188 +330,167 @@ class MainActivity : AppCompatActivity() {
                     return
                 }
                 uiHandler.removeCallbacks(idle)
-                if (text.trim().isNotEmpty()) {
-                    uiHandler.postDelayed(idle, scanIdleAdvanceMs)
-                }
+                uiHandler.postDelayed(idle, scanIdleAdvanceMs)
             }
         })
     }
 
-    private fun finalizeAndSendAssignment() {
-        val now = android.os.SystemClock.uptimeMillis()
-        if (now - lastMoveAtMs < moveDebounceMs) return
-        lastMoveAtMs = now
-
-        val tagId = binding.etAssignmentTagId.text?.toString()?.trim().orEmpty()
-        if (tagId.isEmpty()) return
-
-        val payload = JSONObject().apply {
-            put("ts", OffsetDateTime.now().toString())
-            put("deviceId", deviceId)
-            put("tagId", tagId)
-        }.toString()
-
-        publishMqtt(payload, tagId)
-        binding.etAssignmentTagId.setText("")
-    }
-
     private fun onSubmitBagWeight() {
         val tagId = binding.etBagTagId.text?.toString()?.trim().orEmpty()
-        val weight = binding.spinnerWeights.text.toString()
+        val barcode = binding.etBagBarcode.text?.toString()?.trim().orEmpty()
+        val weightStr = binding.spinnerWeights.text.toString().replace(" kg", "")
+        val weight = weightStr.toIntOrNull() ?: 0
 
-        if (tagId.isBlank()) {
-            showToast(getString(R.string.error_fill_all_fields))
+        if (tagId.isEmpty()) {
+            showToast("Tag ID is required")
+            return
+        }
+        if (barcode.isEmpty()) {
+            showToast("Barcode is required")
             return
         }
 
-        val payload = JSONObject().apply {
-            put("ts", OffsetDateTime.now().toString())
-            put("deviceId", deviceId)
-            put("tagId", tagId)
-            put("weight", weight)
-        }.toString()
-
-        publishMqtt(payload, "$tagId ($weight)")
+        publishScan(tagId, barcode, weight)
+        
+        // Reset fields
         binding.etBagTagId.setText("")
+        binding.etBagBarcode.setText("")
         binding.etBagTagId.requestFocus()
     }
 
+    private fun finalizeAndSendAssignment() {
+        val tagId = binding.etAssignmentTagId.text?.toString()?.trim().orEmpty()
+        if (tagId.isEmpty()) return
+
+        publishScan(tagId, null, null)
+        
+        binding.etAssignmentTagId.setText("")
+        binding.etAssignmentTagId.requestFocus()
+    }
+
+    private fun publishScan(tagId: String, barcode: String?, weight: Int?) {
+        if (mqtt?.state != MqttClientState.CONNECTED) {
+            showToast("MQTT Not Connected")
+            return
+        }
+
+        val json = JSONObject().apply {
+            put("timestamp", OffsetDateTime.now().format(DateTimeFormatter.ISO_OFFSET_DATE_TIME))
+            put("tagId", tagId)
+            barcode?.let { put("barcode", it) }
+            weight?.let { put("weight", it) }
+        }
+
+        val topic = "$baseTopic/$currentSubTopic"
+        mqtt?.publishWith()
+            ?.topic(topic)
+            ?.payload(json.toString().toByteArray(StandardCharsets.UTF_8))
+            ?.qos(MqttQos.AT_LEAST_ONCE)
+            ?.send()
+            ?.whenComplete { _, throwable: Throwable? ->
+                this@MainActivity.runOnUiThread {
+                    if (throwable != null) {
+                        showToast("Publish Failed: ${throwable.message}")
+                    } else {
+                        addToHistory(tagId, barcode)
+                    }
+                }
+            }
+    }
+
+    private fun addToHistory(tagId: String, barcode: String?) {
+        val time = LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm:ss"))
+        val label = if (barcode != null) "$tagId ($barcode)" else tagId
+        val entry = "[$time] $label"
+
+        val historyText = binding.tvHistory.text.toString()
+        val lines = if (historyText.isEmpty()) mutableListOf() else historyText.split("\n").toMutableList()
+        
+        lines.add(0, entry)
+        if (lines.size > MAX_HISTORY_ITEMS) {
+            lines.removeAt(lines.size - 1)
+        }
+        
+        binding.tvHistory.text = lines.joinToString("\n")
+    }
+
     private fun initMqttAndConnect() {
-        val clientId = "${deviceId}-" + UUID.randomUUID().toString().take(8)
+        if (isConnecting.get()) return
+        isConnecting.set(true)
+
         mqtt = MqttClient.builder()
             .useMqttVersion3()
-            .identifier(clientId)
+            .identifier(UUID.randomUUID().toString())
             .serverHost(brokerHost)
             .serverPort(brokerPort)
-            .webSocketConfig().applyWebSocketConfig()
             .useSslWithDefaultConfig()
-            .willPublish()
-                .topic(statusTopic)
-                .qos(MqttQos.AT_LEAST_ONCE)
-                .retain(true)
-                .payload("offline".toByteArray(StandardCharsets.UTF_8))
-                .applyWillPublish()
-            .addConnectedListener {
-                runOnUiThread {
-                    reconnectAttempt = 0
-                    isConnecting.set(false)
-                    updateStatusUI(ConnectionStatus.ONLINE)
-                    mqtt?.publishWith()
-                        ?.topic(statusTopic)
-                        ?.qos(MqttQos.AT_LEAST_ONCE)
-                        ?.retain(true)
-                        ?.payload("online".toByteArray(StandardCharsets.UTF_8))
-                        ?.send()
-                }
-            }
-            .addDisconnectedListener { 
-                runOnUiThread {
-                    isConnecting.set(false)
-                    updateStatusUI(ConnectionStatus.OFFLINE)
-                    scheduleReconnect()
-                }
-            }
             .buildAsync()
 
         connectMqtt()
     }
 
     private fun connectMqtt() {
-        val client = mqtt ?: return
-        if (client.state == MqttClientState.CONNECTED || client.state == MqttClientState.CONNECTING) return
-        if (!isConnecting.compareAndSet(false, true)) return
-
-        updateStatusUI(ConnectionStatus.CONNECTING)
-        client.connectWith()
-            .keepAlive(0) // Set Keep Alive to 0 to disable the client-side timeout mechanism
-            .simpleAuth()
-            .username(mqttUsername)
-            .password(mqttPassword.toByteArray(StandardCharsets.UTF_8))
-            .applySimpleAuth()
-            .send()
-            .whenComplete { _, err ->
-                if (err != null) {
-                    runOnUiThread {
-                        reconnectAttempt++
-                        isConnecting.set(false)
+        mqtt?.connectWith()
+            ?.simpleAuth()
+                ?.username(mqttUsername)
+                ?.password(mqttPassword.toByteArray())
+                ?.applySimpleAuth()
+            ?.willPublish()
+                ?.topic(statusTopic)
+                ?.payload("offline".toByteArray())
+                ?.qos(MqttQos.AT_LEAST_ONCE)
+                ?.retain(true)
+                ?.applyWillPublish()
+            ?.send()
+            ?.whenComplete { _, throwable: Throwable? ->
+                isConnecting.set(false)
+                this@MainActivity.runOnUiThread {
+                    if (throwable != null) {
+                        Log.e(TAG, "MQTT Connection Failed", throwable)
                         updateStatusUI(ConnectionStatus.OFFLINE)
                         scheduleReconnect()
+                    } else {
+                        Log.i(TAG, "MQTT Connected")
+                        reconnectAttempt = 0
+                        updateStatusUI(ConnectionStatus.ONLINE)
+                        publishStatus("online")
                     }
                 }
             }
     }
 
     private fun scheduleReconnect() {
-        reconnectRunnable?.let { uiHandler.removeCallbacks(it) }
-        val base = 1000L * (1L shl min(reconnectAttempt, 5))
-        val delay = min(base, 30_000L) + Random.nextLong(0, 400)
-        
-        reconnectRunnable = Runnable { connectMqtt() }.also { uiHandler.postDelayed(it, delay) }
+        reconnectAttempt++
+        val delay = min(30000L, 2000L * reconnectAttempt)
+        reconnectRunnable = Runnable { connectMqtt() }
+        uiHandler.postDelayed(reconnectRunnable!!, delay)
     }
 
-    private fun publishMqtt(json: String, label: String) {
-        val client = mqtt
-        if (client == null || client.state != MqttClientState.CONNECTED) {
-            showToast(getString(R.string.mqtt_not_connected))
-            if (currentSubTopic == "assignment") {
-                addTransactionToHistory(label, false)
-            }
-            return
-        }
-
-        val fullTopic = "$baseTopic/$currentSubTopic"
-
-        client.publishWith()
-            .topic(fullTopic)
-            .qos(MqttQos.AT_LEAST_ONCE)
-            .payload(json.toByteArray(StandardCharsets.UTF_8))
-            .send()
-            .whenComplete { _, err ->
-                runOnUiThread {
-                    if (err != null) {
-                        showToast(getString(R.string.mqtt_publish_failed, err.message))
-                        if (currentSubTopic == "assignment") {
-                            addTransactionToHistory(label, false)
-                        }
-                    } else {
-                        showToast(getString(R.string.message_sent))
-                        if (currentSubTopic == "assignment") {
-                            addTransactionToHistory(label, true)
-                        }
-                    }
-                }
-            }
-    }
-
-    private fun addTransactionToHistory(label: String, success: Boolean) {
-        val time = LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm:ss"))
-        
-        val view = LayoutInflater.from(this).inflate(R.layout.item_transaction, binding.layoutAssignmentHistory, false)
-        view.findViewById<TextView>(R.id.tvTxTime).text = time
-        view.findViewById<TextView>(R.id.tvTxDesc).text = label
-        
-        val tvStatus = view.findViewById<TextView>(R.id.tvTxStatus)
-        if (success) {
-            tvStatus.text = getString(R.string.tx_status_sent)
-            tvStatus.setTextColor(android.graphics.Color.parseColor("#4CAF50"))
-        } else {
-            tvStatus.text = getString(R.string.tx_status_fail)
-            tvStatus.setTextColor(android.graphics.Color.parseColor("#F44336"))
-        }
-
-        binding.layoutAssignmentHistory.addView(view, 0)
-
-        if (binding.layoutAssignmentHistory.childCount > MAX_HISTORY_ITEMS) {
-            binding.layoutAssignmentHistory.removeViewAt(MAX_HISTORY_ITEMS)
-        }
+    private fun publishStatus(status: String) {
+        mqtt?.publishWith()
+            ?.topic(statusTopic)
+            ?.payload(status.toByteArray())
+            ?.qos(MqttQos.AT_LEAST_ONCE)
+            ?.retain(true)
+            ?.send()
     }
 
     private fun updateStatusUI(status: ConnectionStatus) {
         binding.tvStatus.setText(status.stringResId)
-        binding.viewStatusDot.setBackgroundResource(status.dotDrawableResId)
+        binding.imgStatusDot.setImageResource(status.dotDrawableResId)
     }
 
-    private fun showToast(message: String) {
-        Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
+    private fun showToast(msg: String) {
+        Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        reconnectRunnable?.let { uiHandler.removeCallbacks(it) }
+        publishStatus("offline")
+        mqtt?.disconnect()
+
+        mReader?.free()
+        mBarcodeDecoder?.close()
     }
 }

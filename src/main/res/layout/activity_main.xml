@@ -49,11 +49,11 @@
                 app:layout_constraintTop_toTopOf="parent"
                 app:layout_constraintBottom_toBottomOf="parent">
 
-                <View
-                    android:id="@+id/viewStatusDot"
+                <ImageView
+                    android:id="@+id/imgStatusDot"
                     android:layout_width="12dp"
                     android:layout_height="12dp"
-                    android:background="@drawable/status_dot_red" />
+                    android:src="@drawable/status_dot_red" />
 
                 <TextView
                     android:id="@+id/tvStatus"
@@ -126,7 +126,7 @@
                 <com.google.android.material.textfield.TextInputLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:hint="@string/hint_tag_id"
+                    android:hint="RFID Tag ID"
                     app:boxBackgroundMode="outline"
                     app:boxStrokeColor="@color/outline_dark"
                     app:boxBackgroundColor="@color/surface_dark"
@@ -134,6 +134,25 @@
 
                     <com.google.android.material.textfield.TextInputEditText
                         android:id="@+id/etBagTagId"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:inputType="text"
+                        android:textColor="@color/text_primary_dark" />
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/tilBagBarcode"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:hint="Barcode"
+                    app:boxBackgroundMode="outline"
+                    app:boxStrokeColor="@color/outline_dark"
+                    app:boxBackgroundColor="@color/surface_dark"
+                    app:hintTextColor="@color/text_secondary_dark">
+
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/etBagBarcode"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:inputType="text"
@@ -222,12 +241,19 @@
                     android:textSize="11sp"
                     android:textStyle="bold" />
 
-                <LinearLayout
-                    android:id="@+id/layoutAssignmentHistory"
+                <ScrollView
                     android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:orientation="vertical" />
+                    android:layout_height="0dp"
+                    android:layout_weight="1">
+                    <TextView
+                        android:id="@+id/tvHistory"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:textColor="@color/text_secondary_dark"
+                        android:textSize="13sp"
+                        android:fontFamily="monospace" />
+                </ScrollView>
 
             </LinearLayout>
 

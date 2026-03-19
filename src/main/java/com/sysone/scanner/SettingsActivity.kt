@@ -17,9 +17,12 @@ class SettingsActivity : AppCompatActivity() {
 
         val prefs = getSharedPreferences("settings", Context.MODE_PRIVATE)
         val currentDeviceId = prefs.getString("device_id", "C72-001")
-        val currentMode = prefs.getString("mode", "BOTH") // BOTH, BAG_WEIGHT, TAG_ASSIGNMENT
+        val currentMode = prefs.getString("mode", "BAG_WEIGHT") // BAG_WEIGHT, TAG_ASSIGNMENT
+        val rfidPower = prefs.getInt("rfid_power", 30)
 
         binding.etSettingsDeviceId.setText(currentDeviceId)
+        binding.etSettingsRfidPower.setText(rfidPower.toString())
+        
         when (currentMode) {
             "BAG_WEIGHT" -> binding.rbBagWeight.isChecked = true
             "TAG_ASSIGNMENT" -> binding.rbTagAssignment.isChecked = true
@@ -28,12 +31,17 @@ class SettingsActivity : AppCompatActivity() {
 
         binding.btnSaveSettings.setOnClickListener {
             val newDeviceId = binding.etSettingsDeviceId.text.toString().trim()
+            val newRfidPowerStr = binding.etSettingsRfidPower.text.toString().trim()
             val newMode = if (binding.rbBagWeight.isChecked) "BAG_WEIGHT" else "TAG_ASSIGNMENT"
 
             if (newDeviceId.isNotEmpty()) {
+                val power = newRfidPowerStr.toIntOrNull() ?: 30
+                val clampedPower = power.coerceIn(5, 30)
+                
                 prefs.edit()
                     .putString("device_id", newDeviceId)
                     .putString("mode", newMode)
+                    .putInt("rfid_power", clampedPower)
                     .apply()
 
                 // Restart app to apply changes

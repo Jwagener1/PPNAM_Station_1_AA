@@ -253,19 +253,36 @@ class MainActivity : AppCompatActivity() {
         binding.etAssignmentTagId.onFocusChangeListener = rfidFocusListener
     }
 
-    override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
-        if ((keyCode == 139 || keyCode == 280) && isRfidMode) {
-            startRfidInventory()
-            return true
+    override fun dispatchKeyEvent(event: KeyEvent?): Boolean {
+        val keyCode = event?.keyCode ?: return super.dispatchKeyEvent(event)
+        if (keyCode == 139 || keyCode == 280) {
+            Log.i(TAG, "dispatchKeyEvent: keyCode=$keyCode action=${event.action} isRfidMode=$isRfidMode")
+            if (isRfidMode) {
+                when (event.action) {
+                    KeyEvent.ACTION_DOWN -> {
+                        if (event.repeatCount == 0) {
+                            startRfidInventory()
+                        }
+                        return true
+                    }
+                    KeyEvent.ACTION_UP -> {
+                        stopRfidInventory()
+                        return true
+                    }
+                }
+            }
+            // In barcode mode, let the system keyboard helper handle it
         }
+        return super.dispatchKeyEvent(event)
+    }
+
+    override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
+        // Handled in dispatchKeyEvent for earlier interception
         return super.onKeyDown(keyCode, event)
     }
 
     override fun onKeyUp(keyCode: Int, event: KeyEvent?): Boolean {
-        if ((keyCode == 139 || keyCode == 280) && isRfidMode) {
-            stopRfidInventory()
-            return true
-        }
+        // Handled in dispatchKeyEvent for earlier interception
         return super.onKeyUp(keyCode, event)
     }
 

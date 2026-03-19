@@ -181,6 +181,8 @@ class MainActivity : AppCompatActivity() {
                 }
             }
             Log.d(TAG, "Barcode scanner opened")
+        } else {
+            Log.e(TAG, "Barcode scanner failed to open")
         }
     }
 
@@ -246,6 +248,22 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
+        // Capture keyboard-emulated barcode input (scanner types chars + Enter/Tab)
+        binding.etBagBarcode.setOnKeyListener { _, keyCode, event ->
+            if ((keyCode == KeyEvent.KEYCODE_ENTER || keyCode == KeyEvent.KEYCODE_TAB) 
+                && event.action == KeyEvent.ACTION_UP) {
+                // Barcode scan complete — strip any newlines
+                val text = binding.etBagBarcode.text?.toString()?.trim().orEmpty()
+                if (text.isNotEmpty()) {
+                    binding.etBagBarcode.setText(text)
+                    binding.etBagBarcode.setSelection(text.length)
+                }
+                true
+            } else {
+                false
+            }
+        }
+
         // Ensure RFID fields close barcode when focused
         val rfidFocusListener = View.OnFocusChangeListener { _, hasFocus ->
             if (hasFocus) {
@@ -258,33 +276,21 @@ class MainActivity : AppCompatActivity() {
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
         if (keyCode == 139 || keyCode == 280) {
-            when {
-                isBarcodeField() -> {
-                    stopRfidInventory()
-                    mBarcodeDecoder?.startScan()
-                    return true
-                }
-                isRfidField() -> {
-                    mBarcodeDecoder?.stopScan()
-                    startRfidInventory()
-                    return true
-                }
+            if (isRfidField()) {
+                startRfidInventory()
+                return true
             }
+            // When barcode field is focused, let the system handle the trigger
+            // (barcode decoder is open and will fire automatically)
         }
         return super.onKeyDown(keyCode, event)
     }
 
     override fun onKeyUp(keyCode: Int, event: KeyEvent?): Boolean {
         if (keyCode == 139 || keyCode == 280) {
-            when {
-                isBarcodeField() -> {
-                    mBarcodeDecoder?.stopScan()
-                    return true
-                }
-                isRfidField() -> {
-                    stopRfidInventory()
-                    return true
-                }
+            if (isRfidField()) {
+                stopRfidInventory()
+                return true
             }
         }
         return super.onKeyUp(keyCode, event)

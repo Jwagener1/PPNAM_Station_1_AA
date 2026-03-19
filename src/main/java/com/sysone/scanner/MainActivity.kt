@@ -162,32 +162,34 @@ class MainActivity : AppCompatActivity() {
     }
 
     /**
-     * Enable barcode mode: turn ON the keyboard helper so the system
+     * Enable barcode mode: re-open the 2D barcode module so the system
      * handles trigger → barcode → output to cursor. RFID inventory is stopped.
      */
     private fun enableBarcodeMode() {
         if (!isRfidMode) return  // already in barcode mode
         stopRfidInventory()
         try {
-            BarcodeUtility.getInstance().openKeyboardHelper(this)
-            Log.d(TAG, "Barcode mode: keyboard helper ON")
+            // Re-open the barcode module so the trigger fires barcode again
+            BarcodeUtility.getInstance().open(this, BarcodeUtility.ModuleType.BARCODE_2D)
+            Log.d(TAG, "Barcode mode: barcode module OPENED")
         } catch (e: Exception) {
-            Log.w(TAG, "Could not enable keyboard helper", e)
+            Log.w(TAG, "Could not open barcode module", e)
         }
         isRfidMode = false
     }
 
     /**
-     * Enable RFID mode: turn OFF the keyboard helper so the trigger key
-     * reaches onKeyDown and we can start RFID inventory.
+     * Enable RFID mode: completely close the 2D barcode module so the trigger key
+     * is free for RFID inventory via dispatchKeyEvent.
      */
     private fun enableRfidMode() {
         if (isRfidMode) return  // already in RFID mode
         try {
-            BarcodeUtility.getInstance().closeKeyboardHelper(this)
-            Log.d(TAG, "RFID mode: keyboard helper OFF")
+            // Completely shut down the barcode module — frees the trigger key
+            BarcodeUtility.getInstance().close(this, BarcodeUtility.ModuleType.BARCODE_2D)
+            Log.d(TAG, "RFID mode: barcode module CLOSED")
         } catch (e: Exception) {
-            Log.w(TAG, "Could not disable keyboard helper", e)
+            Log.w(TAG, "Could not close barcode module", e)
         }
         isRfidMode = true
     }

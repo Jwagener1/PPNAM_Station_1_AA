@@ -1,13 +1,16 @@
 package com.sysone.scanner
 
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.os.AsyncTask
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
 import android.view.KeyEvent
+import android.view.View
 import android.view.WindowManager
 import android.widget.ArrayAdapter
 import android.widget.EditText
@@ -34,7 +37,6 @@ import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.math.min
 import android.text.Editable
 import android.text.TextWatcher
-import android.view.View
 
 // Chainway SDK Imports
 import com.rscja.barcode.BarcodeUtility
@@ -67,7 +69,11 @@ class MainActivity : AppCompatActivity() {
     // Hardware Instances
     private var mReader: RFIDWithUHFUART? = null
     private var isRfidInventoryRunning = false
-    private var isRfidMode = false
+
+    // Barcode broadcast receiver
+    private var barcodeBroadcastReceiver: BroadcastReceiver? = null
+    private val BARCODE_ACTION = "com.rscja.scanner.BARCODE_SCAN"
+    private val BARCODE_EXTRA = "BARCODE_DATA"
 
     enum class ConnectionStatus(@get:StringRes val stringResId: Int, val dotDrawableResId: Int) {
         ONLINE(R.string.status_online, R.drawable.status_dot_green),
@@ -130,6 +136,29 @@ class MainActivity : AppCompatActivity() {
         currentSubTopic = if (mode == "TAG_ASSIGNMENT") "assignment" else "offload"
     }
 
+    // ====================================================================
+    // HARDWARE INIT
+    // ====================================================================
+    //
+    // Architecture:
+    //   - BARCODE: The Chainway keyboard helper (system service) owns the
+    //     hardware trigger and fires the barcode scanner automatically.
+    //     We set it to BROADCAST output mode so the result comes to our
+    //     BroadcastReceiver instead of being typed at the cursor.
+    //     We route the data to the correct field in code.
+    //
+    //   - RFID: We call startInventoryTag() / stopInventory() via software.
+    //     RFID inventory runs whenever an RFID field has focus and the user
+    //     presses the hardware trigger (which also fires a barcode scan,
+    //     but that scan will fail/return nothing since the user is pointing
+    //     at an RFID tag, not a barcode).
+    //
+    //   Actually, since both fire on trigger, we start RFID when the field
+    //   is focused and stop when it loses focus — continuous while focused.
+    //   The trigger still fires barcode, but barcode results are only
+    //   routed to the barcode field, so RFID field ignores them.
+    // ====================================================================
+
     private fun initHardware() {
         AsyncTask.execute {
             try {
@@ -145,14 +174,25 @@ class MainActivity : AppCompatActivity() {
                     })
                 }
 
+                // Configure the keyboard helper to use broadcast output mode
+                // instead of cursor mode, so we receive barcode data via broadcast
+                try {
+                    val bu = BarcodeUtility.getInstance()
+                    bu.setOutputMode(this@MainActivity, 2) // 2 = broadcast
+                    bu.setScanResultBroadcast(this@MainActivity, BARCODE_ACTION, BARCODE_EXTRA)
+                    bu.enableEnter(this@MainActivity, false) // no enter key injection
+                    Log.i(TAG, "Barcode output set to BROADCAST mode")
+                } catch (e: Exception) {
+                    Log.e(TAG, "Failed to set barcode broadcast mode", e)
+                }
+
                 this@MainActivity.runOnUiThread {
                     if (rfidInit) {
                         applyRfidPower()
                     } else {
                         showToast("RFID Init Failed")
                     }
-                    // Start in barcode mode (keyboard helper on) — RFID field gets focus to switch
-                    enableBarcodeMode()
+                    registerBarcodeBroadcastReceiver()
                     setupHardwareSwitching()
                 }
             } catch (e: Exception) {
@@ -161,37 +201,56 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    /**
-     * Enable barcode mode: re-open the 2D barcode module so the system
-     * handles trigger → barcode → output to cursor. RFID inventory is stopped.
-     */
-    private fun enableBarcodeMode() {
-        if (!isRfidMode) return  // already in barcode mode
-        stopRfidInventory()
-        try {
-            // Re-open the barcode module so the trigger fires barcode again
-            BarcodeUtility.getInstance().open(this, BarcodeUtility.ModuleType.BARCODE_2D)
-            Log.d(TAG, "Barcode mode: barcode module OPENED")
-        } catch (e: Exception) {
-            Log.w(TAG, "Could not open barcode module", e)
+    // ====================================================================
+    // BARCODE via BroadcastReceiver
+    // ====================================================================
+
+    private fun registerBarcodeBroadcastReceiver() {
+        barcodeBroadcastReceiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context?, intent: Intent?) {
+                val barcode = intent?.getStringExtra(BARCODE_EXTRA) ?: return
+                Log.i(TAG, "Barcode received via broadcast: $barcode")
+                onBarcodeReceived(barcode)
+            }
         }
-        isRfidMode = false
+        val filter = IntentFilter(BARCODE_ACTION)
+        registerReceiver(barcodeBroadcastReceiver, filter)
+        Log.i(TAG, "Barcode broadcast receiver registered for action: $BARCODE_ACTION")
     }
 
-    /**
-     * Enable RFID mode: completely close the 2D barcode module so the trigger key
-     * is free for RFID inventory via dispatchKeyEvent.
-     */
-    private fun enableRfidMode() {
-        if (isRfidMode) return  // already in RFID mode
-        try {
-            // Completely shut down the barcode module — frees the trigger key
-            BarcodeUtility.getInstance().close(this, BarcodeUtility.ModuleType.BARCODE_2D)
-            Log.d(TAG, "RFID mode: barcode module CLOSED")
-        } catch (e: Exception) {
-            Log.w(TAG, "Could not close barcode module", e)
+    private fun onBarcodeReceived(barcode: String) {
+        // Route barcode data to the barcode field regardless of focus,
+        // because the trigger fires barcode no matter what.
+        // Only populate barcode field — RFID fields get data from RFID callback.
+        if (binding.etBagBarcode.visibility == View.VISIBLE) {
+            binding.etBagBarcode.setText(barcode)
+            Log.d(TAG, "Barcode routed to etBagBarcode: $barcode")
         }
-        isRfidMode = true
+    }
+
+    // ====================================================================
+    // RFID — focus-based start/stop
+    // ====================================================================
+
+    private fun setupHardwareSwitching() {
+        // When RFID fields get focus, start continuous RFID inventory
+        // When they lose focus, stop it
+        val rfidFocusListener = View.OnFocusChangeListener { _, hasFocus ->
+            if (hasFocus) {
+                startRfidInventory()
+            } else {
+                // Only stop if NO rfid field has focus
+                if (!isAnyRfidFieldFocused()) {
+                    stopRfidInventory()
+                }
+            }
+        }
+        binding.etBagTagId.onFocusChangeListener = rfidFocusListener
+        binding.etAssignmentTagId.onFocusChangeListener = rfidFocusListener
+    }
+
+    private fun isAnyRfidFieldFocused(): Boolean {
+        return binding.etBagTagId.hasFocus() || binding.etAssignmentTagId.hasFocus()
     }
 
     private fun applyRfidPower() {
@@ -204,9 +263,12 @@ class MainActivity : AppCompatActivity() {
     private fun startRfidInventory() {
         if (isRfidInventoryRunning) return
         AsyncTask.execute {
-            if (mReader?.startInventoryTag() == true) {
+            val result = mReader?.startInventoryTag() ?: false
+            if (result) {
                 isRfidInventoryRunning = true
-                Log.d(TAG, "RFID Inventory Started")
+                Log.i(TAG, "RFID Inventory Started")
+            } else {
+                Log.e(TAG, "RFID startInventoryTag() returned false")
             }
         }
     }
@@ -216,12 +278,13 @@ class MainActivity : AppCompatActivity() {
         AsyncTask.execute {
             if (mReader?.stopInventory() == true) {
                 isRfidInventoryRunning = false
-                Log.d(TAG, "RFID Inventory Stopped")
+                Log.i(TAG, "RFID Inventory Stopped")
             }
         }
     }
 
     private fun onTagRead(epc: String) {
+        Log.i(TAG, "RFID Tag read: $epc")
         if (binding.etBagTagId.hasFocus()) {
             binding.etBagTagId.setText(epc)
         } else if (binding.etAssignmentTagId.hasFocus()) {
@@ -229,64 +292,22 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun isRfidField(): Boolean {
-        return binding.etBagTagId.hasFocus() || binding.etAssignmentTagId.hasFocus()
-    }
-
-    private fun isBarcodeField(): Boolean {
-        return binding.etBagBarcode.hasFocus()
-    }
-
-    private fun setupHardwareSwitching() {
-        // Barcode field → enable keyboard helper (system handles barcode via trigger)
-        binding.etBagBarcode.setOnFocusChangeListener { _, hasFocus ->
-            if (hasFocus) {
-                enableBarcodeMode()
-            }
-        }
-
-        // RFID fields → disable keyboard helper (trigger reaches onKeyDown for RFID)
-        val rfidFocusListener = View.OnFocusChangeListener { _, hasFocus ->
-            if (hasFocus) {
-                enableRfidMode()
-            }
-        }
-        binding.etBagTagId.onFocusChangeListener = rfidFocusListener
-        binding.etAssignmentTagId.onFocusChangeListener = rfidFocusListener
-    }
+    // ====================================================================
+    // Key events — no longer needed for trigger routing, but kept for
+    // potential future use
+    // ====================================================================
 
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
         val keyCode = event.keyCode
         if (keyCode == 139 || keyCode == 280) {
-            Log.i(TAG, "dispatchKeyEvent: keyCode=$keyCode action=${event.action} isRfidMode=$isRfidMode")
-            if (isRfidMode) {
-                when (event.action) {
-                    KeyEvent.ACTION_DOWN -> {
-                        if (event.repeatCount == 0) {
-                            startRfidInventory()
-                        }
-                        return true
-                    }
-                    KeyEvent.ACTION_UP -> {
-                        stopRfidInventory()
-                        return true
-                    }
-                }
-            }
-            // In barcode mode, let the system keyboard helper handle it
+            Log.d(TAG, "dispatchKeyEvent: keyCode=$keyCode action=${event.action}")
         }
         return super.dispatchKeyEvent(event)
     }
 
-    override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
-        // Handled in dispatchKeyEvent for earlier interception
-        return super.onKeyDown(keyCode, event)
-    }
-
-    override fun onKeyUp(keyCode: Int, event: KeyEvent?): Boolean {
-        // Handled in dispatchKeyEvent for earlier interception
-        return super.onKeyUp(keyCode, event)
-    }
+    // ====================================================================
+    // UI
+    // ====================================================================
 
     private fun showPasswordDialog() {
         val input = EditText(this)
@@ -378,6 +399,10 @@ class MainActivity : AppCompatActivity() {
         })
     }
 
+    // ====================================================================
+    // Data submission
+    // ====================================================================
+
     private fun onSubmitBagWeight() {
         val tagId = binding.etBagTagId.text?.toString()?.trim().orEmpty()
         val barcode = binding.etBagBarcode.text?.toString()?.trim().orEmpty()
@@ -395,7 +420,6 @@ class MainActivity : AppCompatActivity() {
 
         publishScan(tagId, barcode, weight)
         
-        // Reset fields
         binding.etBagTagId.setText("")
         binding.etBagBarcode.setText("")
         binding.etBagTagId.requestFocus()
@@ -457,6 +481,10 @@ class MainActivity : AppCompatActivity() {
         
         binding.tvHistory.text = lines.joinToString("\n")
     }
+
+    // ====================================================================
+    // MQTT
+    // ====================================================================
 
     private fun initMqttAndConnect() {
         if (isConnecting.get()) return
@@ -535,7 +563,18 @@ class MainActivity : AppCompatActivity() {
         publishStatus("offline")
         mqtt?.disconnect()
 
+        // Cleanup hardware
         stopRfidInventory()
         mReader?.free()
+
+        // Unregister barcode receiver
+        barcodeBroadcastReceiver?.let {
+            try { unregisterReceiver(it) } catch (_: Exception) {}
+        }
+
+        // Restore barcode output to cursor mode for other apps
+        try {
+            BarcodeUtility.getInstance().setOutputMode(this, 0)
+        } catch (_: Exception) {}
     }
 }

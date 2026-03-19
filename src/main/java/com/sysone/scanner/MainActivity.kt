@@ -39,6 +39,7 @@ import android.view.View
 // Chainway SDK Imports
 import com.rscja.barcode.BarcodeDecoder
 import com.rscja.barcode.BarcodeFactory
+import com.rscja.barcode.BarcodeUtility
 import com.rscja.deviceapi.RFIDWithUHFUART
 import com.rscja.deviceapi.interfaces.IUHFInventoryCallback
 import com.rscja.deviceapi.entity.UHFTAGInfo
@@ -147,11 +148,30 @@ class MainActivity : AppCompatActivity() {
                     })
                 }
 
-                // Get barcode decoder instance but do NOT open it yet.
-                // The C72 trigger key is intercepted by the barcode service when open,
-                // preventing RFID from receiving the key event.
-                // We open/close the barcode decoder based on which field has focus.
+                // Disable the system keyboard helper so it does NOT intercept the
+                // hardware trigger. This lets onKeyDown receive trigger key events
+                // so we can route them to either barcode or RFID based on focus.
+                try {
+                    BarcodeUtility.getInstance().closeKeyboardHelper(this@MainActivity)
+                    Log.d(TAG, "Keyboard helper disabled")
+                } catch (e: Exception) {
+                    Log.w(TAG, "Could not disable keyboard helper", e)
+                }
+
+                // Initialize barcode decoder (matching demo pattern)
                 mBarcodeDecoder = BarcodeFactory.getInstance().barcodeDecoder
+                val barcodeOpen = mBarcodeDecoder?.open(this@MainActivity) ?: false
+                if (barcodeOpen) {
+                    isBarcodeOpen = true
+                    mBarcodeDecoder?.setDecodeCallback { barcodeEntity ->
+                        if (barcodeEntity.resultCode == BarcodeDecoder.DECODE_SUCCESS) {
+                            this@MainActivity.runOnUiThread {
+                                binding.etBagBarcode.setText(barcodeEntity.barcodeData)
+                            }
+                        }
+                    }
+                    Log.d(TAG, "Barcode decoder opened")
+                }
 
                 this@MainActivity.runOnUiThread {
                     if (rfidInit) {
@@ -159,8 +179,9 @@ class MainActivity : AppCompatActivity() {
                     } else {
                         showToast("RFID Init Failed")
                     }
-                    // Set up focus-based hardware switching now that decoder is ready
-                    setupHardwareSwitching()
+                    if (!barcodeOpen) {
+                        showToast("Barcode Init Failed")
+                    }
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Hardware Init Error", e)
@@ -169,29 +190,11 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun openBarcodeScanner() {
-        if (isBarcodeOpen) return
-        val result = mBarcodeDecoder?.open(this) ?: false
-        if (result) {
-            isBarcodeOpen = true
-            mBarcodeDecoder?.setDecodeCallback { barcodeEntity ->
-                if (barcodeEntity.resultCode == BarcodeDecoder.DECODE_SUCCESS) {
-                    this@MainActivity.runOnUiThread {
-                        binding.etBagBarcode.setText(barcodeEntity.barcodeData)
-                    }
-                }
-            }
-            Log.d(TAG, "Barcode scanner opened")
-        } else {
-            Log.e(TAG, "Barcode scanner failed to open")
-        }
+        // no-op: barcode stays open, we control via startScan/stopScan
     }
 
     private fun closeBarcodeScanner() {
-        if (!isBarcodeOpen) return
-        mBarcodeDecoder?.stopScan()
-        mBarcodeDecoder?.close()
-        isBarcodeOpen = false
-        Log.d(TAG, "Barcode scanner closed")
+        // no-op: barcode stays open, we control via startScan/stopScan
     }
 
     private fun applyRfidPower() {
@@ -238,59 +241,38 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupHardwareSwitching() {
-        // When barcode field gains focus, open barcode scanner (so trigger activates it)
-        // When it loses focus, close it (so trigger can be used for RFID)
-        binding.etBagBarcode.setOnFocusChangeListener { _, hasFocus ->
-            if (hasFocus) {
-                openBarcodeScanner()
-            } else {
-                closeBarcodeScanner()
-            }
-        }
-
-        // Capture keyboard-emulated barcode input (scanner types chars + Enter/Tab)
-        binding.etBagBarcode.setOnKeyListener { _, keyCode, event ->
-            if ((keyCode == KeyEvent.KEYCODE_ENTER || keyCode == KeyEvent.KEYCODE_TAB) 
-                && event.action == KeyEvent.ACTION_UP) {
-                // Barcode scan complete — strip any newlines
-                val text = binding.etBagBarcode.text?.toString()?.trim().orEmpty()
-                if (text.isNotEmpty()) {
-                    binding.etBagBarcode.setText(text)
-                    binding.etBagBarcode.setSelection(text.length)
-                }
-                true
-            } else {
-                false
-            }
-        }
-
-        // Ensure RFID fields close barcode when focused
-        val rfidFocusListener = View.OnFocusChangeListener { _, hasFocus ->
-            if (hasFocus) {
-                closeBarcodeScanner()
-            }
-        }
-        binding.etBagTagId.onFocusChangeListener = rfidFocusListener
-        binding.etAssignmentTagId.onFocusChangeListener = rfidFocusListener
+        // No focus-based open/close needed anymore.
+        // Keyboard helper is disabled, barcode decoder stays open.
+        // Trigger routing is handled entirely in onKeyDown/onKeyUp.
     }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
         if (keyCode == 139 || keyCode == 280) {
-            if (isRfidField()) {
-                startRfidInventory()
-                return true
+            when {
+                isBarcodeField() -> {
+                    mBarcodeDecoder?.startScan()
+                    return true
+                }
+                isRfidField() -> {
+                    startRfidInventory()
+                    return true
+                }
             }
-            // When barcode field is focused, let the system handle the trigger
-            // (barcode decoder is open and will fire automatically)
         }
         return super.onKeyDown(keyCode, event)
     }
 
     override fun onKeyUp(keyCode: Int, event: KeyEvent?): Boolean {
         if (keyCode == 139 || keyCode == 280) {
-            if (isRfidField()) {
-                stopRfidInventory()
-                return true
+            when {
+                isBarcodeField() -> {
+                    mBarcodeDecoder?.stopScan()
+                    return true
+                }
+                isRfidField() -> {
+                    stopRfidInventory()
+                    return true
+                }
             }
         }
         return super.onKeyUp(keyCode, event)
@@ -544,6 +526,6 @@ class MainActivity : AppCompatActivity() {
         mqtt?.disconnect()
 
         mReader?.free()
-        closeBarcodeScanner()
+        mBarcodeDecoder?.close()
     }
 }

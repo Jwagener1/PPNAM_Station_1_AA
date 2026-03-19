@@ -110,7 +110,6 @@ class MainActivity : AppCompatActivity() {
         disableSoftKeyboard(binding.etAssignmentTagId)
 
         setupAutoSend(binding.etAssignmentTagId)
-        setupHardwareSwitching()
 
         binding.btnSubmitWeight.setOnClickListener { onSubmitBagWeight() }
         binding.imgLogo.setOnClickListener { showPasswordDialog() }
@@ -150,6 +149,16 @@ class MainActivity : AppCompatActivity() {
                 // Initialize Barcode — just open, set callback later on trigger
                 mBarcodeDecoder = BarcodeFactory.getInstance().barcodeDecoder
                 val barcodeOpen = mBarcodeDecoder?.open(this@MainActivity) ?: false
+                if (barcodeOpen) {
+                    // Disable SDK auto-trigger so we control barcode vs RFID
+                    mBarcodeDecoder?.setDecodeCallback { barcodeEntity ->
+                        if (barcodeEntity.resultCode == BarcodeDecoder.DECODE_SUCCESS) {
+                            this@MainActivity.runOnUiThread {
+                                binding.etBagBarcode.setText(barcodeEntity.barcodeData)
+                            }
+                        }
+                    }
+                }
 
                 this@MainActivity.runOnUiThread {
                     if (rfidInit) {
@@ -202,17 +211,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun setupHardwareSwitching() {
-        // Set up barcode decode callback once (fires when a scan succeeds)
-        mBarcodeDecoder?.setDecodeCallback { barcodeEntity ->
-            if (barcodeEntity.resultCode == BarcodeDecoder.DECODE_SUCCESS) {
-                this@MainActivity.runOnUiThread {
-                    binding.etBagBarcode.setText(barcodeEntity.barcodeData)
-                }
-            }
-        }
-    }
-
     private fun isRfidField(): Boolean {
         return binding.etBagTagId.hasFocus() || binding.etAssignmentTagId.hasFocus()
     }
@@ -225,10 +223,12 @@ class MainActivity : AppCompatActivity() {
         if (keyCode == 139 || keyCode == 280) {
             when {
                 isBarcodeField() -> {
+                    stopRfidInventory()
                     mBarcodeDecoder?.startScan()
                     return true
                 }
                 isRfidField() -> {
+                    mBarcodeDecoder?.stopScan()
                     startRfidInventory()
                     return true
                 }

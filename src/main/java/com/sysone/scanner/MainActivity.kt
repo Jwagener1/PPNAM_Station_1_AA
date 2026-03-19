@@ -37,8 +37,6 @@ import android.text.TextWatcher
 import android.view.View
 
 // Chainway SDK Imports
-import com.rscja.barcode.BarcodeDecoder
-import com.rscja.barcode.BarcodeFactory
 import com.rscja.barcode.BarcodeUtility
 import com.rscja.deviceapi.RFIDWithUHFUART
 import com.rscja.deviceapi.interfaces.IUHFInventoryCallback
@@ -68,9 +66,8 @@ class MainActivity : AppCompatActivity() {
 
     // Hardware Instances
     private var mReader: RFIDWithUHFUART? = null
-    private var mBarcodeDecoder: BarcodeDecoder? = null
-    private var isBarcodeOpen = false
     private var isRfidInventoryRunning = false
+    private var isRfidMode = false
 
     enum class ConnectionStatus(@get:StringRes val stringResId: Int, val dotDrawableResId: Int) {
         ONLINE(R.string.status_online, R.drawable.status_dot_green),
@@ -148,27 +145,14 @@ class MainActivity : AppCompatActivity() {
                     })
                 }
 
-                // Disable the system keyboard helper so it does NOT intercept the
-                // hardware trigger. This lets onKeyDown receive trigger key events
-                // so we can route them to either barcode or RFID based on focus.
-                try {
-                    BarcodeUtility.getInstance().closeKeyboardHelper(this@MainActivity)
-                    Log.d(TAG, "Keyboard helper disabled")
-                } catch (e: Exception) {
-                    Log.w(TAG, "Could not disable keyboard helper", e)
-                }
-
-                // Get barcode decoder instance but do NOT open yet.
-                // Barcode and RFID may share hardware resources, so we
-                // open/close barcode based on which field has focus.
-                mBarcodeDecoder = BarcodeFactory.getInstance().barcodeDecoder
-
                 this@MainActivity.runOnUiThread {
                     if (rfidInit) {
                         applyRfidPower()
                     } else {
                         showToast("RFID Init Failed")
                     }
+                    // Start in barcode mode (keyboard helper on) — RFID field gets focus to switch
+                    enableBarcodeMode()
                     setupHardwareSwitching()
                 }
             } catch (e: Exception) {
@@ -177,34 +161,35 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun openBarcodeScanner() {
-        if (isBarcodeOpen) return
-        AsyncTask.execute {
-            val result = mBarcodeDecoder?.open(this@MainActivity) ?: false
-            if (result) {
-                isBarcodeOpen = true
-                mBarcodeDecoder?.setDecodeCallback { barcodeEntity ->
-                    if (barcodeEntity.resultCode == BarcodeDecoder.DECODE_SUCCESS) {
-                        this@MainActivity.runOnUiThread {
-                            binding.etBagBarcode.setText(barcodeEntity.barcodeData)
-                        }
-                    }
-                }
-                Log.d(TAG, "Barcode scanner opened")
-            } else {
-                Log.e(TAG, "Barcode scanner failed to open")
-            }
+    /**
+     * Enable barcode mode: turn ON the keyboard helper so the system
+     * handles trigger → barcode → output to cursor. RFID inventory is stopped.
+     */
+    private fun enableBarcodeMode() {
+        if (!isRfidMode) return  // already in barcode mode
+        stopRfidInventory()
+        try {
+            BarcodeUtility.getInstance().openKeyboardHelper(this)
+            Log.d(TAG, "Barcode mode: keyboard helper ON")
+        } catch (e: Exception) {
+            Log.w(TAG, "Could not enable keyboard helper", e)
         }
+        isRfidMode = false
     }
 
-    private fun closeBarcodeScanner() {
-        if (!isBarcodeOpen) return
-        AsyncTask.execute {
-            mBarcodeDecoder?.stopScan()
-            mBarcodeDecoder?.close()
-            isBarcodeOpen = false
-            Log.d(TAG, "Barcode scanner closed")
+    /**
+     * Enable RFID mode: turn OFF the keyboard helper so the trigger key
+     * reaches onKeyDown and we can start RFID inventory.
+     */
+    private fun enableRfidMode() {
+        if (isRfidMode) return  // already in RFID mode
+        try {
+            BarcodeUtility.getInstance().closeKeyboardHelper(this)
+            Log.d(TAG, "RFID mode: keyboard helper OFF")
+        } catch (e: Exception) {
+            Log.w(TAG, "Could not disable keyboard helper", e)
         }
+        isRfidMode = true
     }
 
     private fun applyRfidPower() {
@@ -251,19 +236,17 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupHardwareSwitching() {
-        // Open/close barcode decoder based on focus so RFID and barcode
-        // don't conflict over shared hardware resources.
+        // Barcode field → enable keyboard helper (system handles barcode via trigger)
         binding.etBagBarcode.setOnFocusChangeListener { _, hasFocus ->
             if (hasFocus) {
-                openBarcodeScanner()
-            } else {
-                closeBarcodeScanner()
+                enableBarcodeMode()
             }
         }
 
+        // RFID fields → disable keyboard helper (trigger reaches onKeyDown for RFID)
         val rfidFocusListener = View.OnFocusChangeListener { _, hasFocus ->
             if (hasFocus) {
-                closeBarcodeScanner()
+                enableRfidMode()
             }
         }
         binding.etBagTagId.onFocusChangeListener = rfidFocusListener
@@ -271,33 +254,17 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
-        if (keyCode == 139 || keyCode == 280) {
-            when {
-                isBarcodeField() -> {
-                    mBarcodeDecoder?.startScan()
-                    return true
-                }
-                isRfidField() -> {
-                    startRfidInventory()
-                    return true
-                }
-            }
+        if ((keyCode == 139 || keyCode == 280) && isRfidMode) {
+            startRfidInventory()
+            return true
         }
         return super.onKeyDown(keyCode, event)
     }
 
     override fun onKeyUp(keyCode: Int, event: KeyEvent?): Boolean {
-        if (keyCode == 139 || keyCode == 280) {
-            when {
-                isBarcodeField() -> {
-                    mBarcodeDecoder?.stopScan()
-                    return true
-                }
-                isRfidField() -> {
-                    stopRfidInventory()
-                    return true
-                }
-            }
+        if ((keyCode == 139 || keyCode == 280) && isRfidMode) {
+            stopRfidInventory()
+            return true
         }
         return super.onKeyUp(keyCode, event)
     }
@@ -549,7 +516,7 @@ class MainActivity : AppCompatActivity() {
         publishStatus("offline")
         mqtt?.disconnect()
 
+        stopRfidInventory()
         mReader?.free()
-        mBarcodeDecoder?.close()
     }
 }

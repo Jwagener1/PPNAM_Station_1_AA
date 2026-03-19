@@ -63,7 +63,7 @@ class MainActivity : AppCompatActivity() {
     private var mqtt: Mqtt3AsyncClient? = null
     private val uiHandler = Handler(Looper.getMainLooper())
 
-    private var currentSubTopic = "bag_weight"
+    private var currentSubTopic = "offload"
 
     // Hardware Instances
     private var mReader: RFIDWithUHFUART? = null
@@ -129,7 +129,7 @@ class MainActivity : AppCompatActivity() {
         statusTopic = "$baseTopic/status"
         
         val mode = prefs.getString("mode", "BAG_WEIGHT")
-        currentSubTopic = if (mode == "TAG_ASSIGNMENT") "assignment" else "bag_weight"
+        currentSubTopic = if (mode == "TAG_ASSIGNMENT") "assignment" else "offload"
     }
 
     private fun initHardware() {
@@ -138,7 +138,7 @@ class MainActivity : AppCompatActivity() {
                 // Initialize RFID
                 mReader = RFIDWithUHFUART.getInstance()
                 val rfidInit = mReader?.init(this@MainActivity) ?: false
-                
+
                 if (rfidInit) {
                     mReader?.setInventoryCallback(object : IUHFInventoryCallback {
                         override fun callback(tag: UHFTAGInfo) {
@@ -147,7 +147,7 @@ class MainActivity : AppCompatActivity() {
                     })
                 }
 
-                // Initialize Barcode
+                // Initialize Barcode — just open, set callback later on trigger
                 mBarcodeDecoder = BarcodeFactory.getInstance().barcodeDecoder
                 val barcodeOpen = mBarcodeDecoder?.open(this@MainActivity) ?: false
 
@@ -203,30 +203,35 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupHardwareSwitching() {
-        binding.etBagBarcode.setOnFocusChangeListener { _, hasFocus ->
-            if (hasFocus) {
-                mBarcodeDecoder?.setDecodeCallback { barcodeEntity ->
-                    if (barcodeEntity.resultCode == BarcodeDecoder.DECODE_SUCCESS) {
-                        this@MainActivity.runOnUiThread { 
-                            binding.etBagBarcode.setText(barcodeEntity.barcodeData)
-                            binding.etBagBarcode.clearFocus() 
-                        }
-                    }
+        // Set up barcode decode callback once (fires when a scan succeeds)
+        mBarcodeDecoder?.setDecodeCallback { barcodeEntity ->
+            if (barcodeEntity.resultCode == BarcodeDecoder.DECODE_SUCCESS) {
+                this@MainActivity.runOnUiThread {
+                    binding.etBagBarcode.setText(barcodeEntity.barcodeData)
                 }
-            } else {
-                mBarcodeDecoder?.stopScan()
             }
         }
     }
 
+    private fun isRfidField(): Boolean {
+        return binding.etBagTagId.hasFocus() || binding.etAssignmentTagId.hasFocus()
+    }
+
+    private fun isBarcodeField(): Boolean {
+        return binding.etBagBarcode.hasFocus()
+    }
+
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
         if (keyCode == 139 || keyCode == 280) {
-            if (binding.etBagBarcode.hasFocus()) {
-                mBarcodeDecoder?.startScan()
-                return true
-            } else if (binding.etBagTagId.hasFocus() || binding.etAssignmentTagId.hasFocus()) {
-                startRfidInventory()
-                return true
+            when {
+                isBarcodeField() -> {
+                    mBarcodeDecoder?.startScan()
+                    return true
+                }
+                isRfidField() -> {
+                    startRfidInventory()
+                    return true
+                }
             }
         }
         return super.onKeyDown(keyCode, event)
@@ -234,12 +239,15 @@ class MainActivity : AppCompatActivity() {
 
     override fun onKeyUp(keyCode: Int, event: KeyEvent?): Boolean {
         if (keyCode == 139 || keyCode == 280) {
-            if (binding.etBagBarcode.hasFocus()) {
-                mBarcodeDecoder?.stopScan()
-                return true
-            } else if (binding.etBagTagId.hasFocus() || binding.etAssignmentTagId.hasFocus()) {
-                stopRfidInventory()
-                return true
+            when {
+                isBarcodeField() -> {
+                    mBarcodeDecoder?.stopScan()
+                    return true
+                }
+                isRfidField() -> {
+                    stopRfidInventory()
+                    return true
+                }
             }
         }
         return super.onKeyUp(keyCode, event)
@@ -275,7 +283,7 @@ class MainActivity : AppCompatActivity() {
             binding.tabLayout.removeTabAt(1)
             binding.layoutBagWeight.visibility = View.VISIBLE
             binding.layoutTagAssignment.visibility = View.GONE
-            currentSubTopic = "bag_weight"
+            currentSubTopic = "offload"
         } else {
             binding.tabLayout.getTabAt(1)?.select()
             binding.tabLayout.removeTabAt(0)
@@ -375,10 +383,11 @@ class MainActivity : AppCompatActivity() {
         }
 
         val json = JSONObject().apply {
-            put("timestamp", OffsetDateTime.now().format(DateTimeFormatter.ISO_OFFSET_DATE_TIME))
+            put("ts", OffsetDateTime.now().format(DateTimeFormatter.ISO_OFFSET_DATE_TIME))
+            put("deviceId", deviceId)
             put("tagId", tagId)
             barcode?.let { put("barcode", it) }
-            weight?.let { put("weight", it) }
+            weight?.let { put("bag_size", it.toString()) }
         }
 
         val topic = "$baseTopic/$currentSubTopic"
@@ -423,7 +432,8 @@ class MainActivity : AppCompatActivity() {
             .identifier(UUID.randomUUID().toString())
             .serverHost(brokerHost)
             .serverPort(brokerPort)
-            .useSslWithDefaultConfig()
+            .sslWithDefaultConfig()
+            .webSocketWithDefaultConfig()
             .buildAsync()
 
         connectMqtt()

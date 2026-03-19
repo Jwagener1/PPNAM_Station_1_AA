@@ -158,20 +158,10 @@ class MainActivity : AppCompatActivity() {
                     Log.w(TAG, "Could not disable keyboard helper", e)
                 }
 
-                // Initialize barcode decoder (matching demo pattern)
+                // Get barcode decoder instance but do NOT open yet.
+                // Barcode and RFID may share hardware resources, so we
+                // open/close barcode based on which field has focus.
                 mBarcodeDecoder = BarcodeFactory.getInstance().barcodeDecoder
-                val barcodeOpen = mBarcodeDecoder?.open(this@MainActivity) ?: false
-                if (barcodeOpen) {
-                    isBarcodeOpen = true
-                    mBarcodeDecoder?.setDecodeCallback { barcodeEntity ->
-                        if (barcodeEntity.resultCode == BarcodeDecoder.DECODE_SUCCESS) {
-                            this@MainActivity.runOnUiThread {
-                                binding.etBagBarcode.setText(barcodeEntity.barcodeData)
-                            }
-                        }
-                    }
-                    Log.d(TAG, "Barcode decoder opened")
-                }
 
                 this@MainActivity.runOnUiThread {
                     if (rfidInit) {
@@ -179,9 +169,7 @@ class MainActivity : AppCompatActivity() {
                     } else {
                         showToast("RFID Init Failed")
                     }
-                    if (!barcodeOpen) {
-                        showToast("Barcode Init Failed")
-                    }
+                    setupHardwareSwitching()
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Hardware Init Error", e)
@@ -190,11 +178,33 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun openBarcodeScanner() {
-        // no-op: barcode stays open, we control via startScan/stopScan
+        if (isBarcodeOpen) return
+        AsyncTask.execute {
+            val result = mBarcodeDecoder?.open(this@MainActivity) ?: false
+            if (result) {
+                isBarcodeOpen = true
+                mBarcodeDecoder?.setDecodeCallback { barcodeEntity ->
+                    if (barcodeEntity.resultCode == BarcodeDecoder.DECODE_SUCCESS) {
+                        this@MainActivity.runOnUiThread {
+                            binding.etBagBarcode.setText(barcodeEntity.barcodeData)
+                        }
+                    }
+                }
+                Log.d(TAG, "Barcode scanner opened")
+            } else {
+                Log.e(TAG, "Barcode scanner failed to open")
+            }
+        }
     }
 
     private fun closeBarcodeScanner() {
-        // no-op: barcode stays open, we control via startScan/stopScan
+        if (!isBarcodeOpen) return
+        AsyncTask.execute {
+            mBarcodeDecoder?.stopScan()
+            mBarcodeDecoder?.close()
+            isBarcodeOpen = false
+            Log.d(TAG, "Barcode scanner closed")
+        }
     }
 
     private fun applyRfidPower() {
@@ -241,9 +251,23 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupHardwareSwitching() {
-        // No focus-based open/close needed anymore.
-        // Keyboard helper is disabled, barcode decoder stays open.
-        // Trigger routing is handled entirely in onKeyDown/onKeyUp.
+        // Open/close barcode decoder based on focus so RFID and barcode
+        // don't conflict over shared hardware resources.
+        binding.etBagBarcode.setOnFocusChangeListener { _, hasFocus ->
+            if (hasFocus) {
+                openBarcodeScanner()
+            } else {
+                closeBarcodeScanner()
+            }
+        }
+
+        val rfidFocusListener = View.OnFocusChangeListener { _, hasFocus ->
+            if (hasFocus) {
+                closeBarcodeScanner()
+            }
+        }
+        binding.etBagTagId.onFocusChangeListener = rfidFocusListener
+        binding.etAssignmentTagId.onFocusChangeListener = rfidFocusListener
     }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {

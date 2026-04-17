@@ -51,6 +51,13 @@ android {
     }
 }
 
+tasks.register("cleanDuplicateResources") {
+    doLast {
+        delete("src/main/res/drawable/writing.xml")
+        println("Cleanup: Deleted duplicate writing.xml")
+    }
+}
+
 dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.appcompat)

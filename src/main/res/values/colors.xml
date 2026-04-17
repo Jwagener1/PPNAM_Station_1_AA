@@ -1,17 +1,51 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Dark theme surfaces -->
-    <color name="bg_dark">#0F1115</color>
-    <color name="surface_dark">#171A21</color>
-    <color name="surface_dark_2">#1E222B</color>
+    <!-- Base / Surface Colours -->
+    <color name="window_background">#0B1220</color>
+    <color name="card_background">#111827</color>
+    <color name="card_background_alt">#172033</color>
+    <color name="panel_background">#0F172A</color>
+    <color name="panel_background_alt">#111C2F</color>
+    <color name="info_banner">#12294A</color>
 
-    <!-- Text -->
-    <color name="text_primary_dark">#E8EAF0</color>
-    <color name="text_secondary_dark">#AEB6C5</color>
+    <!-- Border Colours -->
+    <color name="border_primary">#334155</color>
+    <color name="border_soft">#263548</color>
 
-    <!-- Accent (Systems One-ish red) -->
-    <color name="accent_red">#E53935</color>
+    <!-- Text Colours -->
+    <color name="text_primary">#F8FAFC</color>
+    <color name="text_muted">#94A3B8</color>
 
-    <!-- Input stroke / divider -->
-    <color name="outline_dark">#2B3140</color>
+    <!-- Semantic / Accent Colours -->
+    <color name="primary_action">#2563EB</color>
+    <color name="accent_action">#0284C7</color>
+    <color name="success">#16A34A</color>
+    <color name="warning">#D97706</color>
+    <color name="danger">#DC2626</color>
+    <color name="info">#1D4ED8</color>
+
+    <!-- Tinted Background Colours -->
+    <color name="light_blue">#183B63</color>
+    <color name="light_green">#173625</color>
+    <color name="light_amber">#4A3513</color>
+    <color name="light_red">#4A1F24</color>
+    <color name="selected_item">#1E3A5F</color>
+
+    <!-- Tile Colours (Dashboard) -->
+    <color name="tile_purple">#7C3AED</color>
+    <color name="tile_blue">#2563EB</color>
+    <color name="tile_amber">#D97706</color>
+    <color name="tile_teal">#0D9488</color>
+
+    <!-- Status Colours -->
+    <color name="status_inactive">#475569</color>
+
+    <!-- Legacy compatibility -->
+    <color name="bg_dark">@color/window_background</color>
+    <color name="surface_dark">@color/card_background</color>
+    <color name="surface_dark_2">@color/card_background_alt</color>
+    <color name="text_primary_dark">@color/text_primary</color>
+    <color name="text_secondary_dark">@color/text_muted</color>
+    <color name="accent_red">@color/danger</color>
+    <color name="outline_dark">@color/border_primary</color>
 </resources>

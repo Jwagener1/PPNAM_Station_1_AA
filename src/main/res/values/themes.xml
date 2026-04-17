@@ -1,8 +1,23 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
     <!-- Base application theme. -->
     <style name="Base.Theme.SysOneScanner" parent="Theme.Material3.DayNight.NoActionBar">
-        <!-- Customize your light theme here. -->
-        <!-- <item name="colorPrimary">@color/my_light_primary</item> -->
+        <!-- Base / Surface Colours -->
+        <item name="android:windowBackground">@color/window_background</item>
+        <item name="colorSurface">@color/card_background</item>
+        <item name="colorSurfaceVariant">@color/card_background_alt</item>
+
+        <!-- Primary / Accent -->
+        <item name="colorPrimary">@color/primary_action</item>
+        <item name="colorSecondary">@color/accent_action</item>
+        <item name="colorError">@color/danger</item>
+
+        <!-- Text Colours -->
+        <item name="android:textColorPrimary">@color/text_primary</item>
+        <item name="android:textColorSecondary">@color/text_muted</item>
+
+        <!-- Status Bar -->
+        <item name="android:statusBarColor">@color/window_background</item>
+        <item name="android:windowLightStatusBar">false</item>
     </style>
 
     <style name="Theme.SysOneScanner" parent="Base.Theme.SysOneScanner" />

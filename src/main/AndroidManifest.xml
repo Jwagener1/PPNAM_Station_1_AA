@@ -19,6 +19,7 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.SysOneScanner">
+
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -28,6 +29,12 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <activity
+            android:name=".ManualSapEntryActivity"
+            android:exported="false"
+            android:label="Manual SAP Entry"
+            android:theme="@style/Theme.SysOneScanner" />
 
         <activity
             android:name=".SettingsActivity"

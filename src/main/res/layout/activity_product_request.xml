@@ -13,6 +13,7 @@
             android:layout_width="match_parent"
             android:layout_height="?attr/actionBarSize"
             android:background="@color/card_background"
+            app:title="Product Request"
             app:titleTextColor="@color/text_primary" />
     </com.google.android.material.appbar.AppBarLayout>
 
@@ -29,6 +30,7 @@
             android:orientation="vertical"
             android:padding="24dp">
 
+            <!-- Search Section -->
             <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -55,18 +57,19 @@
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:minHeight="48dp"
-                            android:importantForAccessibility="yes"
                             android:inputType="text"
                             android:textColor="@color/text_primary" />
                     </com.google.android.material.textfield.TextInputLayout>
 
+                    <!-- Document Type hidden as requested -->
                     <com.google.android.material.textfield.TextInputLayout
                         android:id="@+id/tilDocType"
                         style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="16dp"
-                        android:hint="@string/hint_doc_type">
+                        android:hint="@string/hint_doc_type"
+                        android:visibility="gone">
                         <AutoCompleteTextView
                             android:id="@+id/spinnerDocType"
                             android:layout_width="match_parent"
@@ -75,75 +78,39 @@
                             android:focusable="false"
                             android:focusableInTouchMode="false"
                             android:inputType="none"
-                            android:textColor="@color/text_primary"
-                            android:importantForAccessibility="yes" />
+                            android:textColor="@color/text_primary" />
                     </com.google.android.material.textfield.TextInputLayout>
 
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
             <com.google.android.material.button.MaterialButton
-                android:id="@+id/btnSubmit"
+                android:id="@+id/btnFetchProducts"
                 android:layout_width="match_parent"
                 android:layout_height="64dp"
                 android:layout_marginStart="48dp"
                 android:layout_marginEnd="48dp"
-                android:layout_marginTop="32dp"
-                android:text="@string/btn_lookup"
+                android:layout_marginTop="24dp"
+                android:text="Fetch Products"
                 android:textSize="18sp"
                 app:cornerRadius="16dp" />
 
-            <!-- SAP Lookup Result Section -->
-            <com.google.android.material.card.MaterialCardView
-                android:id="@+id/cardResult"
+            <!-- Loading / Status Section -->
+            <TextView
+                android:id="@+id/tvStatus"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="32dp"
-                android:layout_marginStart="24dp"
-                android:layout_marginEnd="24dp"
-                android:visibility="gone"
-                app:cardBackgroundColor="@color/card_background_alt"
-                app:cardCornerRadius="16dp"
-                app:strokeWidth="2dp">
+                android:layout_marginTop="16dp"
+                android:gravity="center"
+                android:textColor="@color/text_muted"
+                android:visibility="gone" />
 
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:padding="20dp">
-
-                    <TextView
-                        android:id="@+id/tvResultStatus"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:textStyle="bold"
-                        android:textSize="22sp"
-                        android:textAllCaps="true"
-                        android:textColor="@color/text_primary" />
-
-                    <View
-                        android:layout_width="match_parent"
-                        android:layout_height="1dp"
-                        android:layout_marginTop="12dp"
-                        android:layout_marginBottom="12dp"
-                        android:background="@color/border_primary" />
-
-                    <TextView
-                        android:id="@+id/tvResultMessage"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:textColor="@color/text_primary"
-                        android:textSize="16sp" />
-
-                </LinearLayout>
-            </com.google.android.material.card.MaterialCardView>
-
-            <!-- Product Request Section -->
+            <!-- Product Selection Section -->
             <com.google.android.material.card.MaterialCardView
-                android:id="@+id/cardProductRequest"
+                android:id="@+id/cardProductList"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="32dp"
+                android:layout_marginTop="24dp"
                 android:layout_marginStart="24dp"
                 android:layout_marginEnd="24dp"
                 android:visibility="gone"
@@ -161,16 +128,16 @@
                     <TextView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="Product Request"
+                        android:text="Select Products"
                         android:textStyle="bold"
-                        android:textSize="20sp"
+                        android:textSize="18sp"
                         android:textColor="@color/text_primary" />
 
                     <View
                         android:layout_width="match_parent"
                         android:layout_height="1dp"
                         android:layout_marginTop="8dp"
-                        android:layout_marginBottom="16dp"
+                        android:layout_marginBottom="12dp"
                         android:background="@color/border_primary" />
 
                     <androidx.recyclerview.widget.RecyclerView
@@ -178,14 +145,14 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:minHeight="100dp"
-                        app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager" />
+                        android:nestedScrollingEnabled="false" />
 
                     <com.google.android.material.button.MaterialButton
-                        android:id="@+id/btnSubmitProducts"
+                        android:id="@+id/btnSubmitRequest"
                         android:layout_width="match_parent"
                         android:layout_height="64dp"
                         android:layout_marginTop="24dp"
-                        android:text="Submit Selected Products"
+                        android:text="Submit Product Request"
                         android:textSize="16sp"
                         app:cornerRadius="12dp" />
 

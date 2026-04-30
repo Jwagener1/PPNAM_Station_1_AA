@@ -16,32 +16,18 @@ class SettingsActivity : AppCompatActivity() {
         setContentView(binding.root)
 
         val prefs = getSharedPreferences("settings", Context.MODE_PRIVATE)
-        val currentDeviceId = prefs.getString("device_id", "C72-001")
-        val currentMode = prefs.getString("mode", "BAG_WEIGHT") // BAG_WEIGHT, TAG_ASSIGNMENT
-        val rfidPower = prefs.getInt("rfid_power", 30)
+        // Load as int, default to 1 if not set
+        val currentScannerInt = prefs.getInt("scanner_int", 1)
 
-        binding.etSettingsDeviceId.setText(currentDeviceId)
-        binding.etSettingsRfidPower.setText(rfidPower.toString())
-        
-        when (currentMode) {
-            "BAG_WEIGHT" -> binding.rbBagWeight.isChecked = true
-            "TAG_ASSIGNMENT" -> binding.rbTagAssignment.isChecked = true
-            else -> binding.rbBagWeight.isChecked = true // Default
-        }
+        binding.etSettingsDeviceId.setText(currentScannerInt.toString())
 
         binding.btnSaveSettings.setOnClickListener {
-            val newDeviceId = binding.etSettingsDeviceId.text.toString().trim()
-            val newRfidPowerStr = binding.etSettingsRfidPower.text.toString().trim()
-            val newMode = if (binding.rbBagWeight.isChecked) "BAG_WEIGHT" else "TAG_ASSIGNMENT"
+            val newScannerStr = binding.etSettingsDeviceId.text.toString().trim()
+            val newScannerInt = newScannerStr.toIntOrNull()
 
-            if (newDeviceId.isNotEmpty()) {
-                val power = newRfidPowerStr.toIntOrNull() ?: 30
-                val clampedPower = power.coerceIn(5, 30)
-                
+            if (newScannerInt != null) {
                 prefs.edit()
-                    .putString("device_id", newDeviceId)
-                    .putString("mode", newMode)
-                    .putInt("rfid_power", clampedPower)
+                    .putInt("scanner_int", newScannerInt)
                     .apply()
 
                 // Restart app to apply changes
@@ -49,6 +35,8 @@ class SettingsActivity : AppCompatActivity() {
                 intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
                 startActivity(intent)
                 finish()
+            } else {
+                binding.etSettingsDeviceId.error = "Please enter a valid number"
             }
         }
     }

@@ -39,6 +39,19 @@
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintTop_toTopOf="parent" />
 
+            <!-- Settings Button -->
+            <ImageButton
+                android:id="@+id/btnSettings"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="Settings"
+                android:src="@android:drawable/ic_menu_preferences"
+                app:layout_constraintBottom_toBottomOf="parent"
+                app:layout_constraintEnd_toStartOf="@id/statusRow"
+                app:layout_constraintTop_toTopOf="parent"
+                app:tint="@color/text_primary" />
+
             <!-- Status light + label -->
             <LinearLayout
                 android:id="@+id/statusRow"
@@ -87,12 +100,11 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:alignmentMode="alignMargins"
-            android:columnCount="2"
-            android:rowCount="3">
+            android:columnCount="2">
 
-            <!-- Manual SAP Entry -->
+            <!-- 1. SAP Lookup (Top Left) -->
             <com.google.android.material.card.MaterialCardView
-                android:id="@+id/tileManualSap"
+                android:id="@+id/tileSapLookup"
                 android:layout_width="0dp"
                 android:layout_height="200dp"
                 android:layout_columnWeight="1"
@@ -114,7 +126,7 @@
                     <ImageView
                         android:layout_width="80dp"
                         android:layout_height="80dp"
-                        android:contentDescription="Manual SAP Entry icon"
+                        android:contentDescription="SAP Lookup icon"
                         android:src="@drawable/writing"
                         app:tint="@color/text_primary" />
 
@@ -122,7 +134,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="16dp"
-                        android:text="Manual SAP Entry"
+                        android:text="@string/title_lookup_sap"
                         android:textAlignment="center"
                         android:textColor="@color/text_primary"
                         android:textSize="18sp"
@@ -130,52 +142,11 @@
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
-            <!-- Things to do (Placeholder) -->
+            <!-- 2. Product Request (Top Right) -->
             <com.google.android.material.card.MaterialCardView
-                android:id="@+id/tileThingsToDo"
+                android:id="@+id/tileProductRequest"
                 android:layout_width="0dp"
-                android:layout_height="300dp"
-                android:layout_rowSpan="2"
-                android:layout_columnWeight="1"
-                android:layout_margin="8dp"
-                android:clickable="true"
-                android:focusable="true"
-                app:cardBackgroundColor="@color/tile_blue"
-                app:cardCornerRadius="16dp"
-                app:cardElevation="2dp"
-                app:rippleColor="#33FFFFFF">
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="match_parent"
-                    android:gravity="center"
-                    android:orientation="vertical"
-                    android:padding="16dp">
-
-                    <ImageView
-                        android:layout_width="100dp"
-                        android:layout_height="100dp"
-                        android:contentDescription="Warehouse Tasks icon"
-                        android:src="@drawable/ic_launcher_foreground"
-                        app:tint="@color/text_primary" />
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="16dp"
-                        android:text="Warehouse Tasks"
-                        android:textAlignment="center"
-                        android:textColor="@color/text_primary"
-                        android:textSize="18sp"
-                        android:textStyle="bold" />
-                </LinearLayout>
-            </com.google.android.material.card.MaterialCardView>
-
-            <!-- Bag Offload -->
-            <com.google.android.material.card.MaterialCardView
-                android:id="@+id/tileBagOffload"
-                android:layout_width="0dp"
-                android:layout_height="180dp"
+                android:layout_height="200dp"
                 android:layout_columnWeight="1"
                 android:layout_margin="8dp"
                 android:clickable="true"
@@ -193,29 +164,69 @@
                     android:padding="16dp">
 
                     <ImageView
-                        android:layout_width="60dp"
-                        android:layout_height="60dp"
-                        android:contentDescription="Bag Offload icon"
+                        android:layout_width="80dp"
+                        android:layout_height="80dp"
+                        android:contentDescription="Product Request icon"
+                        android:src="@drawable/ic_manual_sap"
+                        app:tint="@color/text_primary" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="16dp"
+                        android:text="@string/title_product_request"
+                        android:textAlignment="center"
+                        android:textColor="@color/text_primary"
+                        android:textSize="18sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- 3. Tag Assignment (Bottom Left) -->
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/tileTagAssignment"
+                android:layout_width="0dp"
+                android:layout_height="200dp"
+                android:layout_columnWeight="1"
+                android:layout_margin="8dp"
+                android:clickable="true"
+                android:focusable="true"
+                app:cardBackgroundColor="@color/tile_blue"
+                app:cardCornerRadius="16dp"
+                app:cardElevation="2dp"
+                app:rippleColor="#33FFFFFF">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:gravity="center"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <ImageView
+                        android:layout_width="80dp"
+                        android:layout_height="80dp"
+                        android:contentDescription="Tag Assignment icon"
                         android:src="@drawable/ic_launcher_foreground"
                         app:tint="@color/text_primary" />
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="12dp"
-                        android:text="Bag Offload"
+                        android:layout_marginTop="16dp"
+                        android:text="@string/tab_tag_assignment"
                         android:textAlignment="center"
                         android:textColor="@color/text_primary"
-                        android:textSize="16sp"
+                        android:textSize="18sp"
                         android:textStyle="bold" />
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
-            <!-- Assignments -->
+            <!-- 4. Offloading (Bottom Right) -->
             <com.google.android.material.card.MaterialCardView
-                android:id="@+id/tileAssignments"
+                android:id="@+id/tileOffload"
                 android:layout_width="0dp"
-                android:layout_height="180dp"
+                android:layout_height="200dp"
                 android:layout_columnWeight="1"
                 android:layout_margin="8dp"
                 android:clickable="true"
@@ -233,20 +244,20 @@
                     android:padding="16dp">
 
                     <ImageView
-                        android:layout_width="60dp"
-                        android:layout_height="60dp"
-                        android:contentDescription="Assignments icon"
+                        android:layout_width="80dp"
+                        android:layout_height="80dp"
+                        android:contentDescription="Offloading icon"
                         android:src="@drawable/ic_launcher_foreground"
                         app:tint="@color/text_primary" />
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="12dp"
-                        android:text="Assignments"
+                        android:layout_marginTop="16dp"
+                        android:text="Offloading"
                         android:textAlignment="center"
                         android:textColor="@color/text_primary"
-                        android:textSize="16sp"
+                        android:textSize="18sp"
                         android:textStyle="bold" />
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>

@@ -37,6 +37,24 @@
             android:theme="@style/Theme.SysOneScanner" />
 
         <activity
+            android:name=".ProductRequestActivity"
+            android:exported="false"
+            android:label="Product Request"
+            android:theme="@style/Theme.SysOneScanner" />
+
+        <activity
+            android:name=".AssignmentActivity"
+            android:exported="false"
+            android:label="Assignments"
+            android:theme="@style/Theme.SysOneScanner" />
+
+        <activity
+            android:name=".TagAssignmentActivity"
+            android:exported="false"
+            android:label="Tag Assignment"
+            android:theme="@style/Theme.SysOneScanner" />
+
+        <activity
             android:name=".SettingsActivity"
             android:exported="false"
             android:theme="@style/Theme.SysOneScanner" />

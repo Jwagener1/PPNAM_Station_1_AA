@@ -1,15 +1,15 @@
 package com.sysone.scanner
 
 import android.content.Context
+import android.content.Intent
 import android.os.Bundle
-import android.util.Log
-import android.view.LayoutInflater
 import android.view.MenuItem
 import android.view.View
 import android.widget.ArrayAdapter
 import android.widget.Toast
 import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import com.hivemq.client.mqtt.MqttClient
@@ -17,22 +17,18 @@ import com.hivemq.client.mqtt.MqttClientState
 import com.hivemq.client.mqtt.datatypes.MqttQos
 import com.hivemq.client.mqtt.mqtt3.Mqtt3AsyncClient
 import com.sysone.scanner.databinding.ActivityManualSapEntryBinding
-import com.sysone.scanner.databinding.ItemSapProductBinding
-import org.json.JSONArray
 import org.json.JSONObject
 import java.nio.charset.StandardCharsets
-import java.time.OffsetDateTime
-import java.time.format.DateTimeFormatter
+import java.time.Instant
 import java.util.UUID
 
 class ManualSapEntryActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityManualSapEntryBinding
-    private var deviceId = "C72-001"
+    private var scanner_int = 1
     private var mqtt: Mqtt3AsyncClient? = null
 
-    private val docTypes = listOf("Invoice", "PurchaseOrder", "DeliveryNote")
-    private val qtyModes = listOf("Known", "Unknown")
+    private val docTypes = listOf("Purchase Order", "Transfer Request")
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -45,11 +41,7 @@ class ManualSapEntryActivity : AppCompatActivity() {
         setupSpinners()
         initMqtt()
 
-        binding.btnAddItem.setOnClickListener { addNewItemRow() }
         binding.btnSubmit.setOnClickListener { validateAndSubmit() }
-
-        // Start with one empty item
-        addNewItemRow()
 
         ViewCompat.setOnApplyWindowInsetsListener(binding.main) { v, insets ->
             val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
@@ -60,50 +52,29 @@ class ManualSapEntryActivity : AppCompatActivity() {
 
     private fun loadSettings() {
         val prefs = getSharedPreferences("settings", Context.MODE_PRIVATE)
-        deviceId = prefs.getString("device_id", "C72-001") ?: "C72-001"
+        scanner_int = prefs.getInt("scanner_int", 1)
+
+        val sapPrefs = getSharedPreferences("sap_data", Context.MODE_PRIVATE)
+        binding.etDocNumber.setText(sapPrefs.getString("last_doc_number", ""))
+        val lastType = sapPrefs.getString("last_doc_type", docTypes[0])
+        binding.spinnerDocType.setText(lastType, false)
     }
 
     private fun setupToolbar() {
         setSupportActionBar(binding.toolbar)
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
-        supportActionBar?.title = "Manual SAP Entry"
+        supportActionBar?.setTitle(R.string.title_lookup_sap)
     }
 
     private fun setupSpinners() {
         val typeAdapter = ArrayAdapter(this, android.R.layout.simple_dropdown_item_1line, docTypes)
         binding.spinnerDocType.setAdapter(typeAdapter)
-        binding.spinnerDocType.setText(docTypes[0], false)
-
-        val modeAdapter = ArrayAdapter(this, android.R.layout.simple_dropdown_item_1line, qtyModes)
-        binding.spinnerQtyMode.setAdapter(modeAdapter)
-        binding.spinnerQtyMode.setText(qtyModes[0], false)
-    }
-
-    private fun addNewItemRow() {
-        val itemBinding = ItemSapProductBinding.inflate(LayoutInflater.from(this), binding.containerItems, false)
-        val index = binding.containerItems.childCount + 1
-        itemBinding.tvItemNumber.text = "Item #$index"
-        
-        itemBinding.btnRemoveItem.setOnClickListener {
-            binding.containerItems.removeView(itemBinding.root)
-            updateItemNumbers()
-        }
-
-        binding.containerItems.addView(itemBinding.root)
-    }
-
-    private fun updateItemNumbers() {
-        for (i in 0 until binding.containerItems.childCount) {
-            val view = binding.containerItems.getChildAt(i)
-            val itemNumberText = view.findViewById<android.widget.TextView>(R.id.tvItemNumber)
-            itemNumberText.text = "Item #${i + 1}"
-        }
     }
 
     private fun initMqtt() {
         mqtt = MqttClient.builder()
             .useMqttVersion3()
-            .identifier(UUID.randomUUID().toString())
+            .identifier("SAP_LOOKUP_" + UUID.randomUUID().toString().take(8))
             .serverHost("mqtt.sysone.co.za")
             .serverPort(443)
             .sslWithDefaultConfig()
@@ -116,6 +87,64 @@ class ManualSapEntryActivity : AppCompatActivity() {
                 ?.password("admin".toByteArray())
                 ?.applySimpleAuth()
             ?.send()
+            ?.whenComplete { _, throwable ->
+                if (throwable == null) {
+                    subscribeToResults()
+                }
+            }
+    }
+
+    private fun subscribeToResults() {
+        val sapResultTopic = "PPNAM/scanner_$scanner_int/sap_result"
+
+        mqtt?.subscribeWith()
+            ?.topicFilter(sapResultTopic)
+            ?.qos(MqttQos.AT_LEAST_ONCE)
+            ?.callback { publish ->
+                val payload = String(publish.payloadAsBytes, StandardCharsets.UTF_8)
+                handleSapResult(payload)
+            }
+            ?.send()
+    }
+
+    private fun handleSapResult(payload: String) {
+        try {
+            val json = JSONObject(payload)
+            val status = json.optString("status", "Unknown")
+            val message = json.optString("message", "")
+
+            runOnUiThread {
+                binding.cardResult.visibility = View.VISIBLE
+                binding.tvResultStatus.text = status
+                binding.tvResultMessage.text = message
+
+                if (status.equals("Success", ignoreCase = true)) {
+                    binding.cardResult.setStrokeColor(ContextCompat.getColorStateList(this, R.color.success))
+                    binding.tvResultStatus.setTextColor(ContextCompat.getColor(this, R.color.success))
+
+                    // Persist sessionId from SAP response for use in all downstream activities
+                    val sessionId = json.optString("sessionId", "")
+                    val docNum = binding.etDocNumber.text?.toString()?.trim()
+                    val docType = binding.spinnerDocType.text.toString()
+
+                    getSharedPreferences("sap_data", Context.MODE_PRIVATE).edit()
+                        .putString("session_id", sessionId)
+                        .apply()
+
+                    val intent = Intent(this, ProductRequestActivity::class.java).apply {
+                        putExtra("doc_number", docNum)
+                        putExtra("doc_type", docType)
+                    }
+                    startActivity(intent)
+                    finish()
+                } else {
+                    binding.cardResult.setStrokeColor(ContextCompat.getColorStateList(this, R.color.danger))
+                    binding.tvResultStatus.setTextColor(ContextCompat.getColor(this, R.color.danger))
+                }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 
     private fun validateAndSubmit() {
@@ -125,53 +154,23 @@ class ManualSapEntryActivity : AppCompatActivity() {
             return
         }
 
-        val itemsArray = JSONArray()
-        for (i in 0 until binding.containerItems.childCount) {
-            val view = binding.containerItems.getChildAt(i)
-            val productCode = view.findViewById<com.google.android.material.textfield.TextInputEditText>(R.id.etProductCode).text?.toString()?.trim().orEmpty()
-            val description = view.findViewById<com.google.android.material.textfield.TextInputEditText>(R.id.etDescription).text?.toString()?.trim().orEmpty()
-            val quantity = view.findViewById<com.google.android.material.textfield.TextInputEditText>(R.id.etQuantity).text?.toString()?.trim().orEmpty()
-            val batchRef = view.findViewById<com.google.android.material.textfield.TextInputEditText>(R.id.etBatchRef).text?.toString()?.trim().orEmpty()
-            val bagSize = view.findViewById<com.google.android.material.textfield.TextInputEditText>(R.id.etBagSize).text?.toString()?.trim().orEmpty()
+        val type = binding.spinnerDocType.text.toString()
 
-            // Per row validation: Code/Desc, Qty, and Batch are recommended/required
-            if (productCode.isEmpty() && description.isEmpty()) continue // Skip empty rows
-            
-            val itemJson = JSONObject().apply {
-                put("ProductCode", productCode)
-                put("ProductDescription", description)
-                put("OpenQuantity", quantity.toDoubleOrNull() ?: 0.0)
-                put("BagSize", bagSize)
-                put("BagsPerPallet", null) // Optional, keeping null as per spec if not in UI
-                put("BatchReference", batchRef)
-            }
-            itemsArray.put(itemJson)
-        }
-
-        if (itemsArray.length() == 0) {
-            Toast.makeText(this, "At least one valid item is required", Toast.LENGTH_SHORT).show()
-            return
-        }
+        // Save doc details; clear any previous sessionId since this is a fresh SAP lookup
+        getSharedPreferences("sap_data", Context.MODE_PRIVATE).edit()
+            .putString("last_doc_number", docNum)
+            .putString("last_doc_type", type)
+            .remove("session_id")
+            .apply()
 
         val payload = JSONObject().apply {
-            put("SourceDocumentType", binding.spinnerDocType.text.toString())
-            put("SourceDocumentNumber", docNum)
-            put("QuantityMode", binding.spinnerQtyMode.text.toString())
-            put("VendorReference", "")
-            put("Warehouse", binding.etWarehouse.text?.toString()?.trim().orEmpty())
-            put("GeneratedBatchReference", "")
-            put("SapMessage", "Manual SAP entry")
-            put("ExpectedPalletCount", null)
-            put("Items", itemsArray)
+            put("ts", Instant.now().toString())
+            put("deviceId", "scanner_$scanner_int")
+            put("sourceDocumentType", type)
+            put("sourceDocumentNumber", docNum)
         }
 
-        val root = JSONObject().apply {
-            put("timestamp", OffsetDateTime.now().format(DateTimeFormatter.ISO_OFFSET_DATE_TIME))
-            put("deviceId", deviceId)
-            put("payload", payload)
-        }
-
-        publishToMqtt(root.toString())
+        publishToMqtt(payload.toString())
     }
 
     private fun publishToMqtt(json: String) {
@@ -180,8 +179,10 @@ class ManualSapEntryActivity : AppCompatActivity() {
             return
         }
 
+        val topic = "PPNAM/scanner_$scanner_int/sap"
+
         mqtt?.publishWith()
-            ?.topic("PPNAM/manual-sap-entry")
+            ?.topic(topic)
             ?.payload(json.toByteArray(StandardCharsets.UTF_8))
             ?.qos(MqttQos.AT_LEAST_ONCE)
             ?.send()
@@ -190,8 +191,7 @@ class ManualSapEntryActivity : AppCompatActivity() {
                     if (throwable != null) {
                         Toast.makeText(this, "Publish Failed: ${throwable.message}", Toast.LENGTH_LONG).show()
                     } else {
-                        Toast.makeText(this, "Successfully Submitted to SAP", Toast.LENGTH_SHORT).show()
-                        finish()
+                        Toast.makeText(this, "Lookup Request Sent", Toast.LENGTH_SHORT).show()
                     }
                 }
             }

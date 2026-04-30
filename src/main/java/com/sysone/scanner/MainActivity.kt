@@ -32,8 +32,8 @@ class MainActivity : AppCompatActivity() {
     private val mqttUsername = "admin"
     private val mqttPassword = "admin"
 
-    private var deviceId = "C72-001"
-    private var statusTopic = "PPNAM/C72-001/status"
+    private var scannerInt = 1
+    private var statusTopic = "PPNAM/scanner_1/status"
 
     private var mqtt: Mqtt3AsyncClient? = null
     private val uiHandler = Handler(Looper.getMainLooper())
@@ -73,26 +73,29 @@ class MainActivity : AppCompatActivity() {
 
     private fun loadSettings() {
         val prefs = getSharedPreferences("settings", Context.MODE_PRIVATE)
-        deviceId = prefs.getString("device_id", "C72-001") ?: "C72-001"
-        statusTopic = "PPNAM/$deviceId/status"
+        scannerInt = prefs.getInt("scanner_int", 1)
+        statusTopic = "PPNAM/scanner_$scannerInt/status"
     }
 
     private fun setupDashboard() {
-        binding.tileManualSap.setOnClickListener {
+        binding.tileSapLookup.setOnClickListener {
             startActivity(Intent(this, ManualSapEntryActivity::class.java))
         }
-        
-        binding.tileBagOffload.setOnClickListener {
-            // Placeholder or Navigate to Bag Offload Activity if it exists
-            showToast("Bag Offload Clicked")
+
+        binding.tileProductRequest.setOnClickListener {
+            startActivity(Intent(this, ProductRequestActivity::class.java))
         }
 
-        binding.tileAssignments.setOnClickListener {
-            showToast("Assignments Clicked")
+        binding.tileTagAssignment.setOnClickListener {
+            startActivity(Intent(this, TagAssignmentActivity::class.java))
         }
 
-        binding.tileThingsToDo.setOnClickListener {
-            showToast("Warehouse Tasks Clicked")
+        binding.tileOffload.setOnClickListener {
+            startActivity(Intent(this, AssignmentActivity::class.java))
+        }
+
+        binding.btnSettings.setOnClickListener {
+            startActivity(Intent(this, SettingsActivity::class.java))
         }
     }
 
@@ -161,10 +164,6 @@ class MainActivity : AppCompatActivity() {
     private fun updateStatusUI(status: ConnectionStatus) {
         binding.tvStatus.setText(status.stringResId)
         binding.imgStatusDot.setImageResource(status.dotDrawableResId)
-    }
-
-    private fun showToast(msg: String) {
-        Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
     }
 
     override fun onDestroy() {

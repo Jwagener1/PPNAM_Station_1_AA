@@ -4,7 +4,10 @@ import android.content.Context
 import android.util.Log
 import com.hivemq.client.mqtt.MqttClient
 import com.hivemq.client.mqtt.MqttClientState
+import com.hivemq.client.mqtt.MqttGlobalPublishFilter
 import com.hivemq.client.mqtt.datatypes.MqttQos
+import com.hivemq.client.mqtt.lifecycle.MqttClientDisconnectedContext
+import com.hivemq.client.mqtt.lifecycle.MqttClientDisconnectedListener
 import com.hivemq.client.mqtt.mqtt3.Mqtt3AsyncClient
 import com.hivemq.client.mqtt.mqtt3.message.publish.Mqtt3Publish
 import java.util.UUID
@@ -30,6 +33,18 @@ class MqttManager private constructor(context: Context) {
     private val brokerPort = 443
     private val mqttUsername = "admin"
     private val mqttPassword = "admin"
+
+    private val disconnectedListener = MqttClientDisconnectedListener { context: MqttClientDisconnectedContext ->
+        Log.w("MqttManager", "Disconnected from broker: ${context.cause.message}")
+        notifyListeners(false)
+        
+        // Auto-reconnect logic
+        android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+            if (!isConnected()) {
+                connect(force = true)
+            }
+        }, 5000)
+    }
 
     companion object {
         @Volatile
@@ -82,6 +97,7 @@ class MqttManager private constructor(context: Context) {
             .serverPort(brokerPort)
             .sslWithDefaultConfig()
             .webSocketWithDefaultConfig()
+            .addDisconnectedListener(disconnectedListener)
             .buildAsync()
 
         client?.connectWith()
@@ -89,10 +105,12 @@ class MqttManager private constructor(context: Context) {
                 ?.username(mqttUsername)
                 ?.password(mqttPassword.toByteArray())
                 ?.applySimpleAuth()
+            ?.keepAlive(15)
+            ?.cleanSession(true)
             ?.willPublish()
                 ?.topic(statusTopic)
                 ?.payload("offline".toByteArray())
-                ?.qos(MqttQos.AT_LEAST_ONCE)
+                ?.qos(MqttQos.EXACTLY_ONCE)
                 ?.retain(true)
                 ?.applyWillPublish()
             ?.send()
@@ -100,44 +118,25 @@ class MqttManager private constructor(context: Context) {
                 isConnecting.set(false)
                 if (throwable == null) {
                     Log.i("MqttManager", "Connected")
+                    // Explicitly publish online status to clear any stale LWT
                     publish(statusTopic, "online", true)
                     
-                    // Subscribe to the global PPNAM topic as requested
+                    // Subscribe to the global PPNAM topic
                     subscribeInternal("PPNAM/#")
                     
-                    // Specific station status monitoring
-                    subscribe("PPNAM/station_1/status") { publish ->
-                        val payload = String(publish.payloadAsBytes, Charsets.UTF_8).lowercase()
-                        val online = payload == "online"
-                        if (online != isStationOnline) {
-                            isStationOnline = online
-                            if (!online) {
-                                resetWorkflow()
-                            }
-                            notifyStationListeners(online)
-                        }
-                    }
                     notifyListeners(true)
                 } else {
                     Log.e("MqttManager", "Connection failed", throwable)
                     notifyListeners(false)
-                    // Simple retry logic
+                    // Retry after delay
                     android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
                         connect()
                     }, 5000)
                 }
             }
             
-        client?.toAsync()?.publishes(com.hivemq.client.mqtt.MqttGlobalPublishFilter.ALL) { publish ->
-            val topic = publish.topic.toString()
-            if (Log.isLoggable("MqttManager", Log.VERBOSE)) {
-                Log.v("MqttManager", "Incoming message on topic: $topic")
-            }
-            
-            // Dispatch to relevant subscribers
-            subscriptions[topic]?.forEach { callback ->
-                callback(publish)
-            }
+        client?.toAsync()?.publishes(MqttGlobalPublishFilter.ALL) { publish ->
+            // Removed internal dispatching here as it's now handled in subscribeInternal callback
         }
     }
 
@@ -145,6 +144,27 @@ class MqttManager private constructor(context: Context) {
         client?.subscribeWith()
             ?.topicFilter(topicFilter)
             ?.qos(MqttQos.AT_LEAST_ONCE)
+            ?.callback { publish ->
+                val topic = publish.topic.toString()
+                
+                // Internal filtering for Station Status
+                if (topic == "PPNAM/station_1/status") {
+                    val payload = String(publish.payloadAsBytes, Charsets.UTF_8).lowercase()
+                    val online = payload == "online"
+                    if (online != isStationOnline) {
+                        isStationOnline = online
+                        if (!online) {
+                            resetWorkflow()
+                        }
+                        notifyStationListeners(online)
+                    }
+                }
+
+                // Global dispatch to other subscribers
+                subscriptions[topic]?.forEach { callback ->
+                    callback(publish)
+                }
+            }
             ?.send()
             ?.whenComplete { _, throwable ->
                 if (throwable != null) {
@@ -213,7 +233,15 @@ class MqttManager private constructor(context: Context) {
         if (!isConnected()) return
         val prefs = appContext.getSharedPreferences("settings", Context.MODE_PRIVATE)
         val scannerInt = prefs.getInt("scanner_int", 1)
+        
+        // 1. Notify local listeners immediately
+        notifyListeners(false)
+        
+        // 2. Publish offline status manually before disconnecting
         publish("PPNAM/scanner_$scannerInt/status", "offline", true)
+        
+        // 3. Close the client
         client?.disconnect()
+        client = null
     }
 }

@@ -30,6 +30,9 @@ class SettingsActivity : AppCompatActivity() {
                     .putInt("scanner_int", newScannerInt)
                     .apply()
 
+                // Force MQTT reconnect with new device ID
+                MqttManager.getInstance(this).connect(force = true)
+
                 // Restart app to apply changes
                 val intent = Intent(this, MainActivity::class.java)
                 intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
@@ -38,6 +41,10 @@ class SettingsActivity : AppCompatActivity() {
             } else {
                 binding.etSettingsDeviceId.error = "Please enter a valid number"
             }
+        }
+
+        binding.btnUnassignMode.setOnClickListener {
+            startActivity(Intent(this, UnassignActivity::class.java))
         }
     }
 }

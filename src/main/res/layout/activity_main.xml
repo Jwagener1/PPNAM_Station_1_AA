@@ -127,8 +127,7 @@
                         android:layout_width="80dp"
                         android:layout_height="80dp"
                         android:contentDescription="SAP Lookup icon"
-                        android:src="@drawable/writing"
-                        app:tint="@color/text_primary" />
+                        android:src="@drawable/sap_lookup" />
 
                     <TextView
                         android:layout_width="wrap_content"
@@ -167,8 +166,7 @@
                         android:layout_width="80dp"
                         android:layout_height="80dp"
                         android:contentDescription="Product Request icon"
-                        android:src="@drawable/ic_manual_sap"
-                        app:tint="@color/text_primary" />
+                        android:src="@drawable/product_request" />
 
                     <TextView
                         android:layout_width="wrap_content"
@@ -207,8 +205,7 @@
                         android:layout_width="80dp"
                         android:layout_height="80dp"
                         android:contentDescription="Tag Assignment icon"
-                        android:src="@drawable/ic_launcher_foreground"
-                        app:tint="@color/text_primary" />
+                        android:src="@drawable/tag_assignment" />
 
                     <TextView
                         android:layout_width="wrap_content"
@@ -247,8 +244,7 @@
                         android:layout_width="80dp"
                         android:layout_height="80dp"
                         android:contentDescription="Offloading icon"
-                        android:src="@drawable/ic_launcher_foreground"
-                        app:tint="@color/text_primary" />
+                        android:src="@drawable/offloading" />
 
                     <TextView
                         android:layout_width="wrap_content"
@@ -264,5 +260,53 @@
 
         </GridLayout>
     </ScrollView>
+
+    <!-- Station Offline Overlay -->
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:id="@+id/layoutStationOffline"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#E60B1220"
+        android:clickable="true"
+        android:focusable="true"
+        android:elevation="10dp"
+        android:visibility="gone"
+        tools:visibility="visible">
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:orientation="vertical"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent">
+
+            <ImageView
+                android:layout_width="120dp"
+                android:layout_height="120dp"
+                android:contentDescription="@string/station_offline_title"
+                android:src="@android:drawable/ic_dialog_alert"
+                app:tint="@color/danger" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="24dp"
+                android:text="@string/station_offline_title"
+                android:textColor="@color/text_primary"
+                android:textSize="24sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="@string/station_offline_message"
+                android:textColor="@color/text_muted"
+                android:textSize="16sp" />
+        </LinearLayout>
+    </androidx.constraintlayout.widget.ConstraintLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

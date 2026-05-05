@@ -15,23 +15,15 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
-import com.hivemq.client.mqtt.MqttClient
-import com.hivemq.client.mqtt.MqttClientState
-import com.hivemq.client.mqtt.datatypes.MqttQos
-import com.hivemq.client.mqtt.mqtt3.Mqtt3AsyncClient
 import com.sysone.scanner.databinding.ActivityAssignmentBinding
 import org.json.JSONObject
 import java.nio.charset.StandardCharsets
 import java.time.Instant
-import java.util.UUID
 
 class AssignmentActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityAssignmentBinding
     private var scanner_int = 1
-    private var mqtt: Mqtt3AsyncClient? = null
-
-    // Bag size options in kg
     private val bagSizeOptions = listOf(450, 500, 600, 750, 1000)
 
     private val barcodeReceiver = object : BroadcastReceiver() {
@@ -66,7 +58,8 @@ class AssignmentActivity : AppCompatActivity() {
         setupToolbar()
         setupBagSizeSpinner()
         setupBatchRefToggle()
-        initMqtt()
+        
+        subscribeToResults()
 
         ViewCompat.setOnApplyWindowInsetsListener(binding.main) { v, insets ->
             val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
@@ -97,17 +90,12 @@ class AssignmentActivity : AppCompatActivity() {
     private fun setupBagSizeSpinner() {
         val adapter = ArrayAdapter(this, android.R.layout.simple_dropdown_item_1line, bagSizeOptions)
         binding.spinnerBagWeight.setAdapter(adapter)
-
-        // Set default value (convert Int → String)
         binding.spinnerBagWeight.setText(bagSizeOptions[0].toString(), false)
-
-        // Prevent manual typing (dropdown only)
         binding.spinnerBagWeight.keyListener = null
     }
 
     private fun setupBatchRefToggle() {
         binding.tilBatchRef.visibility = View.VISIBLE
-
         binding.cbUseDefaultBatchRef.setOnCheckedChangeListener { _, isChecked ->
             if (isChecked) {
                 binding.tilBatchRef.visibility = View.GONE
@@ -118,29 +106,96 @@ class AssignmentActivity : AppCompatActivity() {
         }
     }
 
-    private fun initMqtt() {
-        mqtt = MqttClient.builder()
-            .useMqttVersion3()
-            .identifier("OFFLOAD_" + UUID.randomUUID().toString().take(8))
-            .serverHost("mqtt.sysone.co.za")
-            .serverPort(443)
-            .sslWithDefaultConfig()
-            .webSocketWithDefaultConfig()
-            .buildAsync()
+    private fun subscribeToResults() {
+        val mqtt = MqttManager.getInstance(this)
+        val offloadResultTopic = "PPNAM/station_$scanner_int/offload_result"
+        val allOffloadedResultTopic = "PPNAM/station_$scanner_int/all_offloaded_result"
 
-        mqtt?.connectWith()
-            ?.simpleAuth()
-            ?.username("admin")
-            ?.password("admin".toByteArray())
-            ?.applySimpleAuth()
-            ?.send()
-            ?.whenComplete { _, throwable ->
-                if (throwable != null) {
-                    runOnUiThread {
-                        Toast.makeText(this, "MQTT Connect Failed", Toast.LENGTH_LONG).show()
-                    }
+        mqtt.subscribe(offloadResultTopic) { publish ->
+            val payload = String(publish.payloadAsBytes, StandardCharsets.UTF_8)
+            handleOffloadResult(payload)
+        }
+
+        mqtt.subscribe(allOffloadedResultTopic) { publish ->
+            val payload = String(publish.payloadAsBytes, StandardCharsets.UTF_8)
+            handleAllOffloadedResult(payload)
+        }
+    }
+
+    private fun handleOffloadResult(payload: String) {
+        try {
+            val json = JSONObject(payload)
+            val status = json.optString("status", "Unknown")
+            val message = json.optString("message", "")
+            val pairValidated = json.optBoolean("pairValidated", false)
+            val productCode = json.optString("productCode", "")
+            val palletCode = json.optString("palletCode", "")
+
+            runOnUiThread {
+                binding.btnSubmit.isEnabled = true
+                if (status.equals("Success", ignoreCase = true)) {
+                    Toast.makeText(this, "Success: $palletCode updated.", Toast.LENGTH_SHORT).show()
+                    clearInputs()
+                } else if (status.equals("Mismatch", ignoreCase = true)) {
+                    AlertDialog.Builder(this)
+                        .setTitle("Pairing Mismatch")
+                        .setMessage("$message\n\nPallet: $palletCode\nProduct: $productCode\nValidated: $pairValidated")
+                        .setPositiveButton("OK", null)
+                        .show()
+                } else {
+                    AlertDialog.Builder(this)
+                        .setTitle("Offload Failed")
+                        .setMessage(message)
+                        .setPositiveButton("OK", null)
+                        .show()
                 }
             }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    private fun handleAllOffloadedResult(payload: String) {
+        try {
+            val json = JSONObject(payload)
+            val status = json.optString("status", "Unknown")
+            val message = json.optString("message", "")
+            val finalizedCount = json.optInt("finalizedPalletCount", 0)
+            val incompleteCount = json.optInt("incompletePalletCount", 0)
+
+            runOnUiThread {
+                binding.btnAllOffloaded.isEnabled = true
+                if (status.equals("Success", ignoreCase = true)) {
+                    // Reset workflow on completion
+                    getSharedPreferences("sap_data", Context.MODE_PRIVATE).edit()
+                        .remove("session_id")
+                        .putInt("current_step", 0)
+                        .apply()
+
+                    AlertDialog.Builder(this)
+                        .setTitle("Session Complete")
+                        .setMessage("$message\n\nFinalized: $finalizedCount\nIncomplete: $incompleteCount")
+                        .setPositiveButton("Done") { _, _ -> finish() }
+                        .setCancelable(false)
+                        .show()
+                } else {
+                    AlertDialog.Builder(this)
+                        .setTitle("Completion Error")
+                        .setMessage(message)
+                        .setPositiveButton("OK", null)
+                        .show()
+                }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    private fun clearInputs() {
+        binding.etBarcode.setText("")
+        binding.etRfid.setText("")
+        binding.spinnerBagWeight.setText(bagSizeOptions[0].toString(), false)
+        if (!binding.cbUseDefaultBatchRef.isChecked) binding.etBatchRef.setText("")
     }
 
     private fun validateAndSubmit() {
@@ -175,15 +230,20 @@ class AssignmentActivity : AppCompatActivity() {
             put("barcode", barcode)
             put("batchRef", if (useDefault) "" else batchRef)
             put("useDefaultBatchRef", useDefault)
-            put("bagWeightKg", bagSize) // ✅ INT VALUE
+            put("bagWeightKg", bagSize)
         }
 
         val topic = "PPNAM/$deviceId/offload"
-        publishToMqtt(topic, payload.toString(), "Offload Data Sent") {
-            binding.etBarcode.setText("")
-            binding.etRfid.setText("")
-            binding.spinnerBagWeight.setText(bagSizeOptions[0].toString(), false)
-            if (!useDefault) binding.etBatchRef.setText("")
+        binding.btnSubmit.isEnabled = false
+        MqttManager.getInstance(this).publish(topic, payload.toString()) { throwable ->
+            runOnUiThread {
+                if (throwable != null) {
+                    Toast.makeText(this, "Publish Failed: ${throwable.message}", Toast.LENGTH_LONG).show()
+                    binding.btnSubmit.isEnabled = true
+                } else {
+                    Toast.makeText(this, "Sending offload data...", Toast.LENGTH_SHORT).show()
+                }
+            }
         }
     }
 
@@ -210,32 +270,17 @@ class AssignmentActivity : AppCompatActivity() {
         }
 
         val topic = "PPNAM/$deviceId/all_offloaded"
-        publishToMqtt(topic, payload.toString(), "All Offloaded Confirmed") {
-            finish()
-        }
-    }
-
-    private fun publishToMqtt(topic: String, json: String, successMsg: String, onSuccess: () -> Unit) {
-        if (mqtt?.state != MqttClientState.CONNECTED) {
-            Toast.makeText(this, "MQTT Not Connected", Toast.LENGTH_SHORT).show()
-            return
-        }
-
-        mqtt?.publishWith()
-            ?.topic(topic)
-            ?.payload(json.toByteArray(StandardCharsets.UTF_8))
-            ?.qos(MqttQos.AT_LEAST_ONCE)
-            ?.send()
-            ?.whenComplete { _, throwable ->
-                runOnUiThread {
-                    if (throwable != null) {
-                        Toast.makeText(this, "Publish Failed: ${throwable.message}", Toast.LENGTH_LONG).show()
-                    } else {
-                        Toast.makeText(this, successMsg, Toast.LENGTH_SHORT).show()
-                        onSuccess()
-                    }
+        binding.btnAllOffloaded.isEnabled = false
+        MqttManager.getInstance(this).publish(topic, payload.toString()) { throwable ->
+            runOnUiThread {
+                if (throwable != null) {
+                    Toast.makeText(this, "Publish Failed: ${throwable.message}", Toast.LENGTH_LONG).show()
+                    binding.btnAllOffloaded.isEnabled = true
+                } else {
+                    Toast.makeText(this, "Confirming completion...", Toast.LENGTH_SHORT).show()
                 }
             }
+        }
     }
 
     override fun onResume() {
@@ -268,6 +313,8 @@ class AssignmentActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
-        mqtt?.disconnect()
+        val mqtt = MqttManager.getInstance(this)
+        mqtt.unsubscribe("PPNAM/station_$scanner_int/offload_result")
+        mqtt.unsubscribe("PPNAM/station_$scanner_int/all_offloaded_result")
     }
 }

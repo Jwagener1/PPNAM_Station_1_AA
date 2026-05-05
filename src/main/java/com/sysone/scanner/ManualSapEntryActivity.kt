@@ -12,22 +12,15 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
-import com.hivemq.client.mqtt.MqttClient
-import com.hivemq.client.mqtt.MqttClientState
-import com.hivemq.client.mqtt.datatypes.MqttQos
-import com.hivemq.client.mqtt.mqtt3.Mqtt3AsyncClient
 import com.sysone.scanner.databinding.ActivityManualSapEntryBinding
 import org.json.JSONObject
 import java.nio.charset.StandardCharsets
 import java.time.Instant
-import java.util.UUID
 
 class ManualSapEntryActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityManualSapEntryBinding
     private var scanner_int = 1
-    private var mqtt: Mqtt3AsyncClient? = null
-
     private val docTypes = listOf("Purchase Order", "Transfer Request")
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -39,7 +32,8 @@ class ManualSapEntryActivity : AppCompatActivity() {
         loadSettings()
         setupToolbar()
         setupSpinners()
-        initMqtt()
+        
+        subscribeToResults()
 
         binding.btnSubmit.setOnClickListener { validateAndSubmit() }
 
@@ -71,40 +65,12 @@ class ManualSapEntryActivity : AppCompatActivity() {
         binding.spinnerDocType.setAdapter(typeAdapter)
     }
 
-    private fun initMqtt() {
-        mqtt = MqttClient.builder()
-            .useMqttVersion3()
-            .identifier("SAP_LOOKUP_" + UUID.randomUUID().toString().take(8))
-            .serverHost("mqtt.sysone.co.za")
-            .serverPort(443)
-            .sslWithDefaultConfig()
-            .webSocketWithDefaultConfig()
-            .buildAsync()
-
-        mqtt?.connectWith()
-            ?.simpleAuth()
-                ?.username("admin")
-                ?.password("admin".toByteArray())
-                ?.applySimpleAuth()
-            ?.send()
-            ?.whenComplete { _, throwable ->
-                if (throwable == null) {
-                    subscribeToResults()
-                }
-            }
-    }
-
     private fun subscribeToResults() {
-        val sapResultTopic = "PPNAM/scanner_$scanner_int/sap_result"
-
-        mqtt?.subscribeWith()
-            ?.topicFilter(sapResultTopic)
-            ?.qos(MqttQos.AT_LEAST_ONCE)
-            ?.callback { publish ->
-                val payload = String(publish.payloadAsBytes, StandardCharsets.UTF_8)
-                handleSapResult(payload)
-            }
-            ?.send()
+        val sapResultTopic = "PPNAM/station_$scanner_int/sap_result"
+        MqttManager.getInstance(this).subscribe(sapResultTopic) { publish ->
+            val payload = String(publish.payloadAsBytes, StandardCharsets.UTF_8)
+            handleSapResult(payload)
+        }
     }
 
     private fun handleSapResult(payload: String) {
@@ -122,13 +88,13 @@ class ManualSapEntryActivity : AppCompatActivity() {
                     binding.cardResult.setStrokeColor(ContextCompat.getColorStateList(this, R.color.success))
                     binding.tvResultStatus.setTextColor(ContextCompat.getColor(this, R.color.success))
 
-                    // Persist sessionId from SAP response for use in all downstream activities
                     val sessionId = json.optString("sessionId", "")
                     val docNum = binding.etDocNumber.text?.toString()?.trim()
                     val docType = binding.spinnerDocType.text.toString()
 
                     getSharedPreferences("sap_data", Context.MODE_PRIVATE).edit()
                         .putString("session_id", sessionId)
+                        .putInt("current_step", 1) // Step 1: Lookup complete, enable Product Request
                         .apply()
 
                     val intent = Intent(this, ProductRequestActivity::class.java).apply {
@@ -140,6 +106,7 @@ class ManualSapEntryActivity : AppCompatActivity() {
                 } else {
                     binding.cardResult.setStrokeColor(ContextCompat.getColorStateList(this, R.color.danger))
                     binding.tvResultStatus.setTextColor(ContextCompat.getColor(this, R.color.danger))
+                    binding.btnSubmit.isEnabled = true
                 }
             }
         } catch (e: Exception) {
@@ -156,11 +123,11 @@ class ManualSapEntryActivity : AppCompatActivity() {
 
         val type = binding.spinnerDocType.text.toString()
 
-        // Save doc details; clear any previous sessionId since this is a fresh SAP lookup
         getSharedPreferences("sap_data", Context.MODE_PRIVATE).edit()
             .putString("last_doc_number", docNum)
             .putString("last_doc_type", type)
             .remove("session_id")
+            .putInt("current_step", 0) // Reset to start
             .apply()
 
         val payload = JSONObject().apply {
@@ -170,31 +137,18 @@ class ManualSapEntryActivity : AppCompatActivity() {
             put("sourceDocumentNumber", docNum)
         }
 
-        publishToMqtt(payload.toString())
-    }
-
-    private fun publishToMqtt(json: String) {
-        if (mqtt?.state != MqttClientState.CONNECTED) {
-            Toast.makeText(this, "MQTT Not Connected", Toast.LENGTH_SHORT).show()
-            return
-        }
-
+        binding.btnSubmit.isEnabled = false
         val topic = "PPNAM/scanner_$scanner_int/sap"
-
-        mqtt?.publishWith()
-            ?.topic(topic)
-            ?.payload(json.toByteArray(StandardCharsets.UTF_8))
-            ?.qos(MqttQos.AT_LEAST_ONCE)
-            ?.send()
-            ?.whenComplete { _, throwable ->
-                runOnUiThread {
-                    if (throwable != null) {
-                        Toast.makeText(this, "Publish Failed: ${throwable.message}", Toast.LENGTH_LONG).show()
-                    } else {
-                        Toast.makeText(this, "Lookup Request Sent", Toast.LENGTH_SHORT).show()
-                    }
+        MqttManager.getInstance(this).publish(topic, payload.toString()) { throwable ->
+            runOnUiThread {
+                if (throwable != null) {
+                    Toast.makeText(this, "Publish Failed: ${throwable.message}", Toast.LENGTH_SHORT).show()
+                    binding.btnSubmit.isEnabled = true
+                } else {
+                    Toast.makeText(this, "Lookup Request Sent", Toast.LENGTH_SHORT).show()
                 }
             }
+        }
     }
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
@@ -207,6 +161,7 @@ class ManualSapEntryActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
-        mqtt?.disconnect()
+        val sapResultTopic = "PPNAM/station_$scanner_int/sap_result"
+        MqttManager.getInstance(this).unsubscribe(sapResultTopic)
     }
 }

@@ -3,9 +3,6 @@ package com.sysone.scanner
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
-import android.os.Handler
-import android.os.Looper
-import android.util.Log
 import android.view.WindowManager
 import android.widget.Toast
 import androidx.activity.enableEdgeToEdge
@@ -13,40 +10,40 @@ import androidx.annotation.StringRes
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
-import com.hivemq.client.mqtt.MqttClient
-import com.hivemq.client.mqtt.MqttClientState
-import com.hivemq.client.mqtt.datatypes.MqttQos
-import com.hivemq.client.mqtt.mqtt3.Mqtt3AsyncClient
 import com.sysone.scanner.databinding.ActivityMainBinding
-import java.util.UUID
 import java.util.concurrent.atomic.AtomicBoolean
-import kotlin.math.min
 
 class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
-
-    // ===== MQTT CONFIG =====
-    private val brokerHost = "mqtt.sysone.co.za"
-    private val brokerPort = 443
-    private val mqttUsername = "admin"
-    private val mqttPassword = "admin"
-
     private var scannerInt = 1
-    private var statusTopic = "PPNAM/scanner_1/status"
-
-    private var mqtt: Mqtt3AsyncClient? = null
-    private val uiHandler = Handler(Looper.getMainLooper())
-
+    
     enum class ConnectionStatus(@get:StringRes val stringResId: Int, val dotDrawableResId: Int) {
         ONLINE(R.string.status_online, R.drawable.status_dot_green),
         OFFLINE(R.string.status_offline, R.drawable.status_dot_red),
         CONNECTING(R.string.status_connecting, R.drawable.status_dot_amber)
     }
 
-    private val isConnecting = AtomicBoolean(false)
-    private var reconnectAttempt = 0
-    private var reconnectRunnable: Runnable? = null
+    private val connectionListener: (Boolean) -> Unit = { connected ->
+        runOnUiThread {
+            updateStatusUI(if (connected) ConnectionStatus.ONLINE else ConnectionStatus.OFFLINE)
+        }
+    }
+
+    private val stationStatusListener: (Boolean) -> Unit = { online ->
+        runOnUiThread {
+            if (online) {
+                binding.layoutStationOffline.visibility = android.view.View.GONE
+            } else {
+                binding.layoutStationOffline.visibility = android.view.View.VISIBLE
+                // Bring MainActivity to front and clear others
+                val intent = Intent(this, MainActivity::class.java).apply {
+                    flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+                }
+                startActivity(intent)
+            }
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -66,15 +63,20 @@ class MainActivity : AppCompatActivity() {
         }
 
         setupDashboard()
-
         updateStatusUI(ConnectionStatus.CONNECTING)
-        initMqttAndConnect()
+        
+        MqttManager.getInstance(this).addConnectionListener(connectionListener)
+        MqttManager.getInstance(this).addStationStatusListener(stationStatusListener)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        updateTileStates()
     }
 
     private fun loadSettings() {
         val prefs = getSharedPreferences("settings", Context.MODE_PRIVATE)
         scannerInt = prefs.getInt("scanner_int", 1)
-        statusTopic = "PPNAM/scanner_$scannerInt/status"
     }
 
     private fun setupDashboard() {
@@ -83,7 +85,12 @@ class MainActivity : AppCompatActivity() {
         }
 
         binding.tileProductRequest.setOnClickListener {
-            startActivity(Intent(this, ProductRequestActivity::class.java))
+            val sapPrefs = getSharedPreferences("sap_data", Context.MODE_PRIVATE)
+            val intent = Intent(this, ProductRequestActivity::class.java).apply {
+                putExtra("doc_number", sapPrefs.getString("last_doc_number", ""))
+                putExtra("doc_type", sapPrefs.getString("last_doc_type", ""))
+            }
+            startActivity(intent)
         }
 
         binding.tileTagAssignment.setOnClickListener {
@@ -95,70 +102,53 @@ class MainActivity : AppCompatActivity() {
         }
 
         binding.btnSettings.setOnClickListener {
-            startActivity(Intent(this, SettingsActivity::class.java))
+            showPasswordDialog()
         }
     }
 
-    private fun initMqttAndConnect() {
-        if (isConnecting.get()) return
-        isConnecting.set(true)
+    private fun showPasswordDialog() {
+        val input = android.widget.EditText(this)
+        input.inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
+        input.setPadding(50, 20, 50, 20)
 
-        mqtt = MqttClient.builder()
-            .useMqttVersion3()
-            .identifier(UUID.randomUUID().toString())
-            .serverHost(brokerHost)
-            .serverPort(brokerPort)
-            .sslWithDefaultConfig()
-            .webSocketWithDefaultConfig()
-            .buildAsync()
-
-        connectMqtt()
-    }
-
-    private fun connectMqtt() {
-        mqtt?.connectWith()
-            ?.simpleAuth()
-                ?.username(mqttUsername)
-                ?.password(mqttPassword.toByteArray())
-                ?.applySimpleAuth()
-            ?.willPublish()
-                ?.topic(statusTopic)
-                ?.payload("offline".toByteArray())
-                ?.qos(MqttQos.AT_LEAST_ONCE)
-                ?.retain(true)
-                ?.applyWillPublish()
-            ?.send()
-            ?.whenComplete { _, throwable: Throwable? ->
-                isConnecting.set(false)
-                runOnUiThread {
-                    if (throwable != null) {
-                        Log.e("MainActivity", "MQTT Connection Failed", throwable)
-                        updateStatusUI(ConnectionStatus.OFFLINE)
-                        scheduleReconnect()
-                    } else {
-                        Log.i("MainActivity", "MQTT Connected")
-                        reconnectAttempt = 0
-                        updateStatusUI(ConnectionStatus.ONLINE)
-                        publishStatus("online")
-                    }
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("Settings Access")
+            .setMessage("Please enter password to access settings:")
+            .setView(input)
+            .setPositiveButton("Access") { _, _ ->
+                val password = input.text.toString()
+                if (password == "Mit@s_") {
+                    startActivity(Intent(this, SettingsActivity::class.java))
+                } else {
+                    android.widget.Toast.makeText(this, "Incorrect password", android.widget.Toast.LENGTH_SHORT).show()
                 }
             }
+            .setNegativeButton("Cancel", null)
+            .show()
     }
 
-    private fun scheduleReconnect() {
-        reconnectAttempt++
-        val delay = min(30000L, 2000L * reconnectAttempt)
-        reconnectRunnable = Runnable { connectMqtt() }
-        uiHandler.postDelayed(reconnectRunnable!!, delay)
+    private fun updateTileStates() {
+        val sapPrefs = getSharedPreferences("sap_data", Context.MODE_PRIVATE)
+        val sessionId = sapPrefs.getString("session_id", null)
+        val currentStep = sapPrefs.getInt("current_step", 0)
+        val hasSession = !sessionId.isNullOrEmpty()
+
+        // 1. SAP Lookup is always enabled (Step 0)
+        // 2. Product Request enabled after SAP Lookup (Step 1+)
+        setTileEnabled(binding.tileProductRequest, hasSession && currentStep >= 1)
+        
+        // 3. Tag Assignment enabled after Product Request (Step 2+)
+        setTileEnabled(binding.tileTagAssignment, hasSession && currentStep >= 2)
+        
+        // 4. Offloading enabled after Tag Assignment (Step 3+)
+        setTileEnabled(binding.tileOffload, hasSession && currentStep >= 3)
     }
 
-    private fun publishStatus(status: String) {
-        mqtt?.publishWith()
-            ?.topic(statusTopic)
-            ?.payload(status.toByteArray())
-            ?.qos(MqttQos.AT_LEAST_ONCE)
-            ?.retain(true)
-            ?.send()
+    private fun setTileEnabled(view: com.google.android.material.card.MaterialCardView, enabled: Boolean) {
+        view.isEnabled = enabled
+        view.alpha = if (enabled) 1.0f else 0.5f
+        view.isClickable = enabled
+        view.isFocusable = enabled
     }
 
     private fun updateStatusUI(status: ConnectionStatus) {
@@ -168,8 +158,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
-        reconnectRunnable?.let { uiHandler.removeCallbacks(it) }
-        publishStatus("offline")
-        mqtt?.disconnect()
+        MqttManager.getInstance(this).removeConnectionListener(connectionListener)
+        MqttManager.getInstance(this).removeStationStatusListener(stationStatusListener)
     }
 }

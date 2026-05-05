@@ -36,4 +36,13 @@
     <string name="title_offload">Offload</string>
     <string name="btn_fetch_products">Fetch Products</string>
     <string name="btn_submit_request">Submit Product Request</string>
+
+    <string name="station_offline_title">MAIN STATION OFFLINE</string>
+    <string name="station_offline_message">Please wait for the main station to reconnect...</string>
+
+    <string name="title_unassign_mode">Unassign Mode</string>
+    <string name="msg_unassign_hint">Scan an RFID tag to unassign it from the system.</string>
+    <string name="label_last_scanned">Last Scanned</string>
+    <string name="status_no_tag">No tag scanned yet</string>
+    <string name="btn_open_unassign">Open Unassign Mode</string>
 </resources>

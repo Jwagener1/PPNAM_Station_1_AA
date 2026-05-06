@@ -28,6 +28,8 @@ class MqttManager private constructor(context: Context) {
 
     var isStationOnline = true
         private set
+    
+    private var currentStationId = 1
 
     private val brokerHost = "mqtt.sysone.co.za"
     private val brokerPort = 443
@@ -41,7 +43,7 @@ class MqttManager private constructor(context: Context) {
         // Auto-reconnect logic
         android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
             if (!isConnected()) {
-                connect(force = true)
+                connect()
             }
         }, 5000)
     }
@@ -81,7 +83,8 @@ class MqttManager private constructor(context: Context) {
         if (!force && (isConnected() || isConnecting.get())) return
         
         if (force) {
-            client?.disconnect()
+            disconnect { connect(force = false) }
+            return
         }
 
         isConnecting.set(true)
@@ -118,6 +121,10 @@ class MqttManager private constructor(context: Context) {
                 isConnecting.set(false)
                 if (throwable == null) {
                     Log.i("MqttManager", "Connected")
+                    
+                    val stationInt = prefs.getInt("station_int", 1)
+                    currentStationId = stationInt // Sync with configured Station ID
+
                     // Explicitly publish online status to clear any stale LWT
                     publish(statusTopic, "online", true)
                     
@@ -136,7 +143,7 @@ class MqttManager private constructor(context: Context) {
             }
             
         client?.toAsync()?.publishes(MqttGlobalPublishFilter.ALL) { publish ->
-            // Removed internal dispatching here as it's now handled in subscribeInternal callback
+            // Routing is handled in subscribeInternal callback
         }
     }
 
@@ -148,7 +155,7 @@ class MqttManager private constructor(context: Context) {
                 val topic = publish.topic.toString()
                 
                 // Internal filtering for Station Status
-                if (topic == "PPNAM/station_1/status") {
+                if (topic == "PPNAM/station_$currentStationId/status") {
                     val payload = String(publish.payloadAsBytes, Charsets.UTF_8).lowercase()
                     val online = payload == "online"
                     if (online != isStationOnline) {
@@ -229,19 +236,25 @@ class MqttManager private constructor(context: Context) {
         }
     }
 
-    fun disconnect() {
-        if (!isConnected()) return
+    fun disconnect(onComplete: () -> Unit = {}) {
+        if (!isConnected()) {
+            onComplete()
+            return
+        }
         val prefs = appContext.getSharedPreferences("settings", Context.MODE_PRIVATE)
         val scannerInt = prefs.getInt("scanner_int", 1)
         
-        // 1. Notify local listeners immediately
         notifyListeners(false)
         
-        // 2. Publish offline status manually before disconnecting
-        publish("PPNAM/scanner_$scannerInt/status", "offline", true)
-        
-        // 3. Close the client
-        client?.disconnect()
-        client = null
+        // Publish offline status and wait for it to complete before disconnecting
+        publish("PPNAM/scanner_$scannerInt/status", "offline", true) { throwable ->
+            if (throwable != null) {
+                Log.e("MqttManager", "Failed to publish offline status during disconnect", throwable)
+            }
+            client?.disconnect()?.whenComplete { _, _ ->
+                client = null
+                onComplete()
+            }
+        }
     }
 }

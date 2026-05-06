@@ -20,6 +20,7 @@ class UnassignActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityUnassignBinding
     private var scannerInt = 1
+    private var stationInt = 1
 
     private val rfidReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
@@ -52,6 +53,7 @@ class UnassignActivity : AppCompatActivity() {
     private fun loadSettings() {
         val prefs = getSharedPreferences("settings", Context.MODE_PRIVATE)
         scannerInt = prefs.getInt("scanner_int", 1)
+        stationInt = prefs.getInt("station_int", 1)
     }
 
     private fun setupToolbar() {
@@ -62,7 +64,7 @@ class UnassignActivity : AppCompatActivity() {
 
     private fun subscribeToResults() {
         val mqtt = MqttManager.getInstance(this)
-        val unassignResultTopic = "PPNAM/station_$scannerInt/unassign_result"
+        val unassignResultTopic = "PPNAM/station_$stationInt/unassign_result"
         mqtt.subscribe(unassignResultTopic) { publish ->
             val payload = String(publish.payloadAsBytes)
             handleUnassignResult(payload)
@@ -138,6 +140,6 @@ class UnassignActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
-        MqttManager.getInstance(this).unsubscribe("PPNAM/station_$scannerInt/unassign_result")
+        MqttManager.getInstance(this).unsubscribe("PPNAM/station_$stationInt/unassign_result")
     }
 }

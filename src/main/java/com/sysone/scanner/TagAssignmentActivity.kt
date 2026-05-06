@@ -23,6 +23,7 @@ class TagAssignmentActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityTagAssignmentBinding
     private var scannerInt = 1
+    private var stationInt = 1
     private var selectedProducts: List<String> = emptyList()
     private var palletSequence: Int = 1
 
@@ -79,6 +80,7 @@ class TagAssignmentActivity : AppCompatActivity() {
     private fun loadSettings() {
         val prefs = getSharedPreferences("settings", Context.MODE_PRIVATE)
         scannerInt = prefs.getInt("scanner_int", 1)
+        stationInt = prefs.getInt("station_int", 1)
     }
 
     private fun getSessionId(): String {
@@ -106,9 +108,9 @@ class TagAssignmentActivity : AppCompatActivity() {
 
     private fun subscribeToResults() {
         val mqtt = MqttManager.getInstance(this)
-        val assignmentResultTopic = "PPNAM/station_$scannerInt/assignment_result"
-        val printResultTopic = "PPNAM/station_$scannerInt/print_all_result"
-        val productsResponseTopic = "PPNAM/station_$scannerInt/sap_products_response"
+        val assignmentResultTopic = "PPNAM/station_$stationInt/assignment_result"
+        val printResultTopic = "PPNAM/station_$stationInt/print_all_result"
+        val productsResponseTopic = "PPNAM/station_$stationInt/sap_products_response"
 
         mqtt.subscribe(assignmentResultTopic) { publish ->
             val payload = String(publish.payloadAsBytes, StandardCharsets.UTF_8)
@@ -334,8 +336,8 @@ class TagAssignmentActivity : AppCompatActivity() {
     override fun onDestroy() {
         super.onDestroy()
         val mqtt = MqttManager.getInstance(this)
-        mqtt.unsubscribe("PPNAM/station_$scannerInt/assignment_result")
-        mqtt.unsubscribe("PPNAM/station_$scannerInt/print_all_result")
-        mqtt.unsubscribe("PPNAM/station_$scannerInt/sap_products_response")
+        mqtt.unsubscribe("PPNAM/station_$stationInt/assignment_result")
+        mqtt.unsubscribe("PPNAM/station_$stationInt/print_all_result")
+        mqtt.unsubscribe("PPNAM/station_$stationInt/sap_products_response")
     }
 }

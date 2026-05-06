@@ -80,8 +80,8 @@ class ScannerApp : Application() {
     private fun setupSapProductRequestListener() {
         val mqtt = MqttManager.getInstance(this)
         val prefs = getSharedPreferences("settings", Context.MODE_PRIVATE)
-        val scannerInt = prefs.getInt("scanner_int", 1)
-        val requestTopic = "PPNAM/station_$scannerInt/sap_products_request"
+        val stationInt = prefs.getInt("station_int", 1)
+        val requestTopic = "PPNAM/station_$stationInt/sap_products_request"
 
         mqtt.subscribe(requestTopic) { publish ->
             val payload = String(publish.payloadAsBytes)
@@ -152,8 +152,8 @@ class ScannerApp : Application() {
     private fun setupTagAssignmentRequestListener() {
         val mqtt = MqttManager.getInstance(this)
         val prefs = getSharedPreferences("settings", Context.MODE_PRIVATE)
-        val scannerInt = prefs.getInt("scanner_int", 1)
-        val requestTopic = "PPNAM/station_$scannerInt/tag_assignment_request"
+        val stationInt = prefs.getInt("station_int", 1)
+        val requestTopic = "PPNAM/station_$stationInt/tag_assignment_request"
 
         mqtt.subscribe(requestTopic) { publish ->
             val payload = String(publish.payloadAsBytes)

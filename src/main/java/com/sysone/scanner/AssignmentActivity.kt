@@ -24,6 +24,7 @@ class AssignmentActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityAssignmentBinding
     private var scanner_int = 1
+    private var station_int = 1
     private val bagSizeOptions = listOf(450, 500, 600, 750, 1000)
 
     private val barcodeReceiver = object : BroadcastReceiver() {
@@ -74,6 +75,7 @@ class AssignmentActivity : AppCompatActivity() {
     private fun loadSettings() {
         val prefs = getSharedPreferences("settings", Context.MODE_PRIVATE)
         scanner_int = prefs.getInt("scanner_int", 1)
+        station_int = prefs.getInt("station_int", 1)
     }
 
     private fun getSessionId(): String {
@@ -108,8 +110,8 @@ class AssignmentActivity : AppCompatActivity() {
 
     private fun subscribeToResults() {
         val mqtt = MqttManager.getInstance(this)
-        val offloadResultTopic = "PPNAM/station_$scanner_int/offload_result"
-        val allOffloadedResultTopic = "PPNAM/station_$scanner_int/all_offloaded_result"
+        val offloadResultTopic = "PPNAM/station_$station_int/offload_result"
+        val allOffloadedResultTopic = "PPNAM/station_$station_int/all_offloaded_result"
 
         mqtt.subscribe(offloadResultTopic) { publish ->
             val payload = String(publish.payloadAsBytes, StandardCharsets.UTF_8)
@@ -314,7 +316,7 @@ class AssignmentActivity : AppCompatActivity() {
     override fun onDestroy() {
         super.onDestroy()
         val mqtt = MqttManager.getInstance(this)
-        mqtt.unsubscribe("PPNAM/station_$scanner_int/offload_result")
-        mqtt.unsubscribe("PPNAM/station_$scanner_int/all_offloaded_result")
+        mqtt.unsubscribe("PPNAM/station_$station_int/offload_result")
+        mqtt.unsubscribe("PPNAM/station_$station_int/all_offloaded_result")
     }
 }

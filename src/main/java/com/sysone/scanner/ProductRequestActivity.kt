@@ -27,6 +27,7 @@ class ProductRequestActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityProductRequestBinding
     private var scannerInt = 1
+    private var stationInt = 1
     private val productAdapter = ProductAdapter()
     private var submittedProductList: ArrayList<String>? = null
 
@@ -65,6 +66,7 @@ class ProductRequestActivity : AppCompatActivity() {
     private fun loadSettings() {
         val prefs = getSharedPreferences("settings", Context.MODE_PRIVATE)
         scannerInt = prefs.getInt("scanner_int", 1)
+        stationInt = prefs.getInt("station_int", 1)
     }
 
     private fun setupToolbar() {
@@ -80,8 +82,8 @@ class ProductRequestActivity : AppCompatActivity() {
 
     private fun subscribeToResults() {
         val mqtt = MqttManager.getInstance(this)
-        val productsResponseTopic = "PPNAM/station_$scannerInt/sap_products_response"
-        val selectedResultTopic = "PPNAM/station_$scannerInt/sap_products_selected_result"
+        val productsResponseTopic = "PPNAM/station_$stationInt/sap_products_response"
+        val selectedResultTopic = "PPNAM/station_$stationInt/sap_products_selected_result"
 
         mqtt.subscribe(productsResponseTopic) { publish ->
             val payload = String(publish.payloadAsBytes, StandardCharsets.UTF_8)
@@ -290,8 +292,8 @@ class ProductRequestActivity : AppCompatActivity() {
     override fun onDestroy() {
         super.onDestroy()
         val mqtt = MqttManager.getInstance(this)
-        mqtt.unsubscribe("PPNAM/station_$scannerInt/sap_products_response")
-        mqtt.unsubscribe("PPNAM/station_$scannerInt/sap_products_selected_result")
+        mqtt.unsubscribe("PPNAM/station_$stationInt/sap_products_response")
+        mqtt.unsubscribe("PPNAM/station_$stationInt/sap_products_selected_result")
     }
 
     data class ProductItem(val code: String, val description: String, var isSelected: Boolean = false)

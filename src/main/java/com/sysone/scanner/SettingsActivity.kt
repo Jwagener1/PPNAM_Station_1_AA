@@ -18,28 +18,41 @@ class SettingsActivity : AppCompatActivity() {
         val prefs = getSharedPreferences("settings", Context.MODE_PRIVATE)
         // Load as int, default to 1 if not set
         val currentScannerInt = prefs.getInt("scanner_int", 1)
+        val currentStationInt = prefs.getInt("station_int", 1)
 
         binding.etSettingsDeviceId.setText(currentScannerInt.toString())
+        binding.etSettingsStationId.setText(currentStationInt.toString())
 
         binding.btnSaveSettings.setOnClickListener {
             val newScannerStr = binding.etSettingsDeviceId.text.toString().trim()
+            val newStationStr = binding.etSettingsStationId.text.toString().trim()
+            
             val newScannerInt = newScannerStr.toIntOrNull()
+            val newStationInt = newStationStr.toIntOrNull()
 
-            if (newScannerInt != null) {
-                prefs.edit()
-                    .putInt("scanner_int", newScannerInt)
-                    .apply()
+            if (newScannerInt != null && newStationInt != null) {
+                // 1. Properly disconnect the OLD ID first
+                MqttManager.getInstance(this).disconnect {
+                    runOnUiThread {
+                        // 2. Save the NEW IDs after the old one is offline
+                        prefs.edit()
+                            .putInt("scanner_int", newScannerInt)
+                            .putInt("station_int", newStationInt)
+                            .apply()
 
-                // Force MQTT reconnect with new device ID
-                MqttManager.getInstance(this).connect(force = true)
+                        // 3. Reconnect with the new ID
+                        MqttManager.getInstance(this).connect()
 
-                // Restart app to apply changes
-                val intent = Intent(this, MainActivity::class.java)
-                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
-                startActivity(intent)
-                finish()
+                        // Restart app to apply changes
+                        val intent = Intent(this, MainActivity::class.java)
+                        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+                        startActivity(intent)
+                        finish()
+                    }
+                }
             } else {
-                binding.etSettingsDeviceId.error = "Please enter a valid number"
+                if (newScannerInt == null) binding.etSettingsDeviceId.error = "Invalid number"
+                if (newStationInt == null) binding.etSettingsStationId.error = "Invalid number"
             }
         }
 

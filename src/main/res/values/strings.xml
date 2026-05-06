@@ -45,4 +45,10 @@
     <string name="label_last_scanned">Last Scanned</string>
     <string name="status_no_tag">No tag scanned yet</string>
     <string name="btn_open_unassign">Open Unassign Mode</string>
+    <string name="title_reassign_mode">Reassign Mode</string>
+    <string name="msg_reassign_hint">Scan a Barcode and an RFID tag to reassign them.</string>
+    <string name="btn_open_reassign">Open Reassign Mode</string>
+    <string name="msg_sending_reassign">Sending reassign request...</string>
+    <string name="msg_reassign_success">Reassign request sent successfully</string>
+    <string name="msg_reassign_failed">Failed to send: %s</string>
 </resources>

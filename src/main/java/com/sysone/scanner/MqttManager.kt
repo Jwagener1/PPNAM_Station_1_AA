@@ -168,8 +168,10 @@ class MqttManager private constructor(context: Context) {
                 }
 
                 // Global dispatch to other subscribers
-                subscriptions[topic]?.forEach { callback ->
-                    callback(publish)
+                subscriptions.forEach { (topicFilter, callbacks) ->
+                    if (matches(topic, topicFilter)) {
+                        callbacks.forEach { it(publish) }
+                    }
                 }
             }
             ?.send()
@@ -188,6 +190,24 @@ class MqttManager private constructor(context: Context) {
 
     private fun notifyStationListeners(online: Boolean) {
         stationStatusListeners.forEach { it(online) }
+    }
+
+    private fun matches(topic: String, filter: String): Boolean {
+        if (topic == filter) return true
+        if (filter.contains("+")) {
+            val topicParts = topic.split("/")
+            val filterParts = filter.split("/")
+            if (topicParts.size != filterParts.size) return false
+            for (i in topicParts.indices) {
+                if (filterParts[i] != "+" && filterParts[i] != topicParts[i]) return false
+            }
+            return true
+        }
+        if (filter.endsWith("/#")) {
+            val prefix = filter.substring(0, filter.length - 2)
+            return topic.startsWith(prefix)
+        }
+        return false
     }
 
     private fun resetWorkflow() {

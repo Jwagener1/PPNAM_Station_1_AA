@@ -79,11 +79,15 @@ class ScannerApp : Application() {
 
     private fun setupSapProductRequestListener() {
         val mqtt = MqttManager.getInstance(this)
-        val prefs = getSharedPreferences("settings", Context.MODE_PRIVATE)
-        val stationInt = prefs.getInt("station_int", 1)
-        val requestTopic = "PPNAM/station_$stationInt/sap_products_request"
+        val requestTopic = "PPNAM/+/sap_products_request"
 
         mqtt.subscribe(requestTopic) { publish ->
+            val topic = publish.topic.toString()
+            val prefs = getSharedPreferences("settings", Context.MODE_PRIVATE)
+            val stationInt = prefs.getInt("station_int", 1)
+            
+            if (topic != "PPNAM/station_$stationInt/sap_products_request") return@subscribe
+
             val payload = String(publish.payloadAsBytes)
             Log.d("ScannerApp", "Received SAP Product Request: $payload")
             
@@ -151,11 +155,15 @@ class ScannerApp : Application() {
 
     private fun setupTagAssignmentRequestListener() {
         val mqtt = MqttManager.getInstance(this)
-        val prefs = getSharedPreferences("settings", Context.MODE_PRIVATE)
-        val stationInt = prefs.getInt("station_int", 1)
-        val requestTopic = "PPNAM/station_$stationInt/tag_assignment_request"
+        val requestTopic = "PPNAM/+/tag_assignment_request"
 
         mqtt.subscribe(requestTopic) { publish ->
+            val topic = publish.topic.toString()
+            val prefs = getSharedPreferences("settings", Context.MODE_PRIVATE)
+            val stationInt = prefs.getInt("station_int", 1)
+
+            if (topic != "PPNAM/station_$stationInt/tag_assignment_request") return@subscribe
+
             val payload = String(publish.payloadAsBytes)
             Log.d("ScannerApp", "Received Tag Assignment Request: $payload")
 
@@ -217,7 +225,7 @@ class ScannerApp : Application() {
             .putString("last_doc_type", docType)
             .apply()
             
-        // The TagAssignmentActivity itself listens for PPNAM/station_1/sap_products_response 
+        // The TagAssignmentActivity itself listens for sap_products_response
         // which usually follows this message, but we could also broadcast a local update if needed.
         Log.d("ScannerApp", "Silently updated active TagAssignment context for doc $docNum")
     }

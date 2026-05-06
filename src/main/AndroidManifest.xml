@@ -79,6 +79,12 @@
             android:label="Unassign Mode"
             android:theme="@style/Theme.SysOneScanner" />
 
+        <activity
+            android:name=".ReassignActivity"
+            android:exported="false"
+            android:label="Reassign Mode"
+            android:theme="@style/Theme.SysOneScanner" />
+
     </application>
 
 </manifest>

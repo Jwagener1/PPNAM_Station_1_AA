@@ -59,5 +59,9 @@ class SettingsActivity : AppCompatActivity() {
         binding.btnUnassignMode.setOnClickListener {
             startActivity(Intent(this, UnassignActivity::class.java))
         }
+
+        binding.btnReassignMode.setOnClickListener {
+            startActivity(Intent(this, ReassignActivity::class.java))
+        }
     }
 }

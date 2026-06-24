@@ -1,0 +1,7 @@
+{
+    "chat.tools.terminal.autoApprove": {
+        ".\\gradlew": true,
+        "where.exe": true,
+        "ForEach-Object": true
+    }
+}

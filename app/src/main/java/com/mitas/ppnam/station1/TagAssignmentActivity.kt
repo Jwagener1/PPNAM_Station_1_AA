@@ -1,4 +1,4 @@
-package com.sysone.scanner
+package com.mitas.ppnam.station1
 
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -14,7 +14,7 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
-import com.sysone.scanner.databinding.ActivityTagAssignmentBinding
+import com.mitas.ppnam.station1.databinding.ActivityTagAssignmentBinding
 import org.json.JSONObject
 import java.nio.charset.StandardCharsets
 import java.time.Instant

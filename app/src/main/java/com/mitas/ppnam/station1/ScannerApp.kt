@@ -1,4 +1,4 @@
-package com.sysone.scanner
+package com.mitas.ppnam.station1
 
 import android.app.Activity
 import android.app.Application

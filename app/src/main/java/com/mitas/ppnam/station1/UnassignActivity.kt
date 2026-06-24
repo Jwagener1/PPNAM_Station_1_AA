@@ -1,4 +1,4 @@
-package com.sysone.scanner
+package com.mitas.ppnam.station1
 
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -12,7 +12,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
-import com.sysone.scanner.databinding.ActivityUnassignBinding
+import com.mitas.ppnam.station1.databinding.ActivityUnassignBinding
 import org.json.JSONObject
 import java.time.Instant
 

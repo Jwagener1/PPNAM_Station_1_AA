@@ -1,4 +1,4 @@
-package com.sysone.scanner
+package com.mitas.ppnam.station1
 
 import android.content.Context
 import android.content.Intent
@@ -16,8 +16,8 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-import com.sysone.scanner.databinding.ActivityProductRequestBinding
-import com.sysone.scanner.databinding.ItemSapProductSelectableBinding
+import com.mitas.ppnam.station1.databinding.ActivityProductRequestBinding
+import com.mitas.ppnam.station1.databinding.ItemSapProductSelectableBinding
 import org.json.JSONArray
 import org.json.JSONObject
 import java.nio.charset.StandardCharsets

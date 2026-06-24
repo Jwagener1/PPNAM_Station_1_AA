@@ -1,4 +1,4 @@
-package com.sysone.scanner
+package com.mitas.ppnam.station1
 
 import android.content.Context
 import android.content.Intent
@@ -10,7 +10,7 @@ import androidx.annotation.StringRes
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
-import com.sysone.scanner.databinding.ActivityMainBinding
+import com.mitas.ppnam.station1.databinding.ActivityMainBinding
 import java.util.concurrent.atomic.AtomicBoolean
 
 class MainActivity : AppCompatActivity() {

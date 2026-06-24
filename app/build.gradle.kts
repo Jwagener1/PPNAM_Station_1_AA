@@ -11,11 +11,11 @@ val keystoreProps = Properties().apply {
 }
 
 android {
-    namespace = "com.sysone.scanner"
+    namespace = "com.mitas.ppnam.station1"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.sysone.scanner"
+        applicationId = "com.mitas.ppnam.station1"
         minSdk = 26
         targetSdk = 35
         versionCode = 1

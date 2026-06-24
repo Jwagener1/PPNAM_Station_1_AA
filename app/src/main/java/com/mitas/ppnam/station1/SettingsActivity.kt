@@ -1,10 +1,10 @@
-package com.sysone.scanner
+package com.mitas.ppnam.station1
 
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
-import com.sysone.scanner.databinding.ActivitySettingsBinding
+import com.mitas.ppnam.station1.databinding.ActivitySettingsBinding
 
 class SettingsActivity : AppCompatActivity() {
 

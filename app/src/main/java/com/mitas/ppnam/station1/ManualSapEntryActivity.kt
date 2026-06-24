@@ -1,4 +1,4 @@
-package com.sysone.scanner
+package com.mitas.ppnam.station1
 
 import android.content.Context
 import android.content.Intent
@@ -12,7 +12,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
-import com.sysone.scanner.databinding.ActivityManualSapEntryBinding
+import com.mitas.ppnam.station1.databinding.ActivityManualSapEntryBinding
 import org.json.JSONObject
 import java.nio.charset.StandardCharsets
 import java.time.Instant

@@ -1,6 +1,13 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
+}
+
+val keystoreProps = Properties().apply {
+    val propsFile = rootProject.file("keystore/keystore.properties")
+    if (propsFile.exists()) load(propsFile.inputStream())
 }
 
 android {
@@ -17,9 +24,19 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    signingConfigs {
+        create("release") {
+            storeFile = file(keystoreProps["storeFile"] as String)
+            storePassword = keystoreProps["storePassword"] as String
+            keyAlias = keystoreProps["keyAlias"] as String
+            keyPassword = keystoreProps["keyPassword"] as String
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("release")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -69,7 +86,7 @@ dependencies {
     implementation(libs.androidx.constraintlayout)
     implementation(libs.hivemq.mqtt.client)
     implementation(libs.netty.codec.http)
-    
+
     // Chainway SDK
     implementation(fileTree("libs") { include("*.aar") })
 

@@ -1,21 +1,35 @@
-# Add project specific ProGuard rules here.
-# You can control the set of applied configuration files using the
-# proguardFiles setting in build.gradle.
-#
-# For more details, see
-#   http://developer.android.com/guide/developing/tools/proguard.html
+# Keep line numbers in stack traces
+-keepattributes SourceFile,LineNumberTable
+-renamesourcefileattribute SourceFile
 
-# If your project uses WebView with JS, uncomment the following
-# and specify the fully qualified class name to the JavaScript interface
-# class:
-#-keepclassmembers class fqcn.of.javascript.interface.for.webview {
-#   public *;
-#}
+# Keep all app classes (Activities, Application, etc.)
+-keep class com.mitas.ppnam.station1.** { *; }
 
-# Uncomment this to preserve the line number information for
-# debugging stack traces.
-#-keepattributes SourceFile,LineNumberTable
+# HiveMQ MQTT client
+-keep class com.hivemq.** { *; }
+-dontwarn com.hivemq.**
 
-# If you keep the line number information, uncomment this to
-# hide the original source file name.
-#-renamesourcefileattribute SourceFile
+# Netty (used by HiveMQ)
+-keep class io.netty.** { *; }
+-dontwarn io.netty.**
+-keepclassmembers class io.netty.** { *; }
+
+# Chainway / RSCJA SDK
+-keep class com.rscja.** { *; }
+-dontwarn com.rscja.**
+
+# Android ViewBinding (generated classes)
+-keep class * extends androidx.viewbinding.ViewBinding { *; }
+
+# JSON (used in MQTT payloads)
+-keep class org.json.** { *; }
+
+# Keep Kotlin metadata
+-keepattributes *Annotation*
+-keepattributes Signature
+-keepattributes InnerClasses,EnclosingMethod
+
+# Kotlin coroutines / stdlib
+-dontwarn kotlin.**
+-keep class kotlin.** { *; }
+-keep class kotlinx.** { *; }

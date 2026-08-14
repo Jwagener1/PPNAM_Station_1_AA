@@ -90,6 +90,7 @@ class ReassignActivity : AppCompatActivity() {
     private fun handleReassignResult(payload: String) {
         try {
             val json = JSONObject(payload)
+            if (!MqttManager.getInstance(this).isRelevantToThisScanner(json)) return
             val status = json.optString("status", "Unknown")
             val message = json.optString("message", "")
 

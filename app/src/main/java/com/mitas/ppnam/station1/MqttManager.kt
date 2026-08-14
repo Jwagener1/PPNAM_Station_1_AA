@@ -10,6 +10,7 @@ import com.hivemq.client.mqtt.lifecycle.MqttClientDisconnectedContext
 import com.hivemq.client.mqtt.lifecycle.MqttClientDisconnectedListener
 import com.hivemq.client.mqtt.mqtt3.Mqtt3AsyncClient
 import com.hivemq.client.mqtt.mqtt3.message.publish.Mqtt3Publish
+import org.json.JSONObject
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CopyOnWriteArrayList
@@ -254,6 +255,20 @@ class MqttManager private constructor(context: Context) {
             }
             Log.d("MqttManager", "Removed specific subscriber for topic: $topic")
         }
+    }
+
+    /**
+     * Per HANDSCANNER_MQTT_FLOW.md #9: station _result/_response topics are shared
+     * across all scanners, so isolation is done via the payload's deviceId field.
+     * Accept when deviceId is missing/not a "scanner_*" id/matches this scanner;
+     * drop when it names a different scanner.
+     */
+    fun isRelevantToThisScanner(payload: JSONObject): Boolean {
+        val deviceId = payload.optString("deviceId", "")
+        if (deviceId.isEmpty() || !deviceId.startsWith("scanner_")) return true
+        val scannerInt = appContext.getSharedPreferences("settings", Context.MODE_PRIVATE)
+            .getInt("scanner_int", 1)
+        return deviceId == "scanner_$scannerInt"
     }
 
     fun disconnect(onComplete: () -> Unit = {}) {

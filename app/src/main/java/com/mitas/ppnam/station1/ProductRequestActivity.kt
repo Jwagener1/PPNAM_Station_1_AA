@@ -99,6 +99,7 @@ class ProductRequestActivity : AppCompatActivity() {
     private fun handleSelectedResult(payload: String) {
         try {
             val json = JSONObject(payload)
+            if (!MqttManager.getInstance(this).isRelevantToThisScanner(json)) return
             val status = json.optString("status", "Unknown")
             val message = json.optString("message", "")
 
@@ -154,7 +155,7 @@ class ProductRequestActivity : AppCompatActivity() {
         val payload = JSONObject().apply {
             put("ts", Instant.now().toString())
             put("deviceId", "scanner_$scannerInt")
-            put("sessionId", getSessionId())
+            getSessionId().takeIf { it.isNotBlank() }?.let { put("sessionId", it) }
             put("sourceDocumentType", docType)
             put("sourceDocumentNumber", docNum)
         }
@@ -179,6 +180,7 @@ class ProductRequestActivity : AppCompatActivity() {
     private fun handleProductsResponse(payload: String) {
         try {
             val json = JSONObject(payload)
+            if (!MqttManager.getInstance(this).isRelevantToThisScanner(json)) return
             val status = json.optString("status", "")
             val message = json.optString("message", "")
             val respSessionId = json.optString("sessionId", "")
@@ -250,7 +252,7 @@ class ProductRequestActivity : AppCompatActivity() {
         val payload = JSONObject().apply {
             put("ts", Instant.now().toString())
             put("deviceId", "scanner_$scannerInt")
-            put("sessionId", getSessionId())
+            getSessionId().takeIf { it.isNotBlank() }?.let { put("sessionId", it) }
             put("sourceDocumentType", docType)
             put("sourceDocumentNumber", docNum)
 

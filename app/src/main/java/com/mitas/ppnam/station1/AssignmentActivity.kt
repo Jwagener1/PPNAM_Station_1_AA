@@ -127,6 +127,7 @@ class AssignmentActivity : AppCompatActivity() {
     private fun handleOffloadResult(payload: String) {
         try {
             val json = JSONObject(payload)
+            if (!MqttManager.getInstance(this).isRelevantToThisScanner(json)) return
             val status = json.optString("status", "Unknown")
             val message = json.optString("message", "")
             val pairValidated = json.optBoolean("pairValidated", false)
@@ -160,6 +161,7 @@ class AssignmentActivity : AppCompatActivity() {
     private fun handleAllOffloadedResult(payload: String) {
         try {
             val json = JSONObject(payload)
+            if (!MqttManager.getInstance(this).isRelevantToThisScanner(json)) return
             val status = json.optString("status", "Unknown")
             val message = json.optString("message", "")
             val finalizedCount = json.optInt("finalizedPalletCount", 0)
@@ -227,7 +229,7 @@ class AssignmentActivity : AppCompatActivity() {
         val payload = JSONObject().apply {
             put("ts", Instant.now().toString())
             put("deviceId", deviceId)
-            put("sessionId", getSessionId())
+            getSessionId().takeIf { it.isNotBlank() }?.let { put("sessionId", it) }
             put("tagId", rfid)
             put("barcode", barcode)
             put("batchRef", if (useDefault) "" else batchRef)
@@ -266,7 +268,7 @@ class AssignmentActivity : AppCompatActivity() {
         val payload = JSONObject().apply {
             put("ts", Instant.now().toString())
             put("deviceId", deviceId)
-            put("sessionId", getSessionId())
+            getSessionId().takeIf { it.isNotBlank() }?.let { put("sessionId", it) }
             put("sourceDocumentNumber", sourceDocNum)
             put("allOffloaded", true)
         }

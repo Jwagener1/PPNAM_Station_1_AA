@@ -109,12 +109,18 @@ class TagAssignmentActivity : AppCompatActivity() {
     private fun subscribeToResults() {
         val mqtt = MqttManager.getInstance(this)
         val assignmentResultTopic = "PPNAM/station_$stationInt/assignment_result"
+        val allAssignedResultTopic = "PPNAM/station_$stationInt/all_assigned_result"
         val printResultTopic = "PPNAM/station_$stationInt/print_all_result"
         val productsResponseTopic = "PPNAM/station_$stationInt/sap_products_response"
 
         mqtt.subscribe(assignmentResultTopic) { publish ->
             val payload = String(publish.payloadAsBytes, StandardCharsets.UTF_8)
             handleAssignmentResult(payload)
+        }
+
+        mqtt.subscribe(allAssignedResultTopic) { publish ->
+            val payload = String(publish.payloadAsBytes, StandardCharsets.UTF_8)
+            handleAllAssignedResult(payload)
         }
 
         mqtt.subscribe(printResultTopic) { publish ->
@@ -131,6 +137,7 @@ class TagAssignmentActivity : AppCompatActivity() {
     private fun handleProductsResponse(payload: String) {
         try {
             val json = JSONObject(payload)
+            if (!MqttManager.getInstance(this).isRelevantToThisScanner(json)) return
             val productsArray = json.optJSONArray("products") ?: return
             val newProductList = mutableListOf<String>()
             for (i in 0 until productsArray.length()) {
@@ -158,6 +165,7 @@ class TagAssignmentActivity : AppCompatActivity() {
     private fun handlePrintResult(payload: String) {
         try {
             val json = JSONObject(payload)
+            if (!MqttManager.getInstance(this).isRelevantToThisScanner(json)) return
             val msg = json.optString("message", "")
             runOnUiThread {
                 Toast.makeText(this, msg, Toast.LENGTH_LONG).show()
@@ -176,6 +184,7 @@ class TagAssignmentActivity : AppCompatActivity() {
     private fun handleAssignmentResult(payload: String) {
         try {
             val json = JSONObject(payload)
+            if (!MqttManager.getInstance(this).isRelevantToThisScanner(json)) return
             val status = json.optString("status", "Unknown")
             val message = json.optString("message", "")
             val palletCode = json.optString("palletCode", "")
@@ -200,6 +209,31 @@ class TagAssignmentActivity : AppCompatActivity() {
         }
     }
 
+    private fun handleAllAssignedResult(payload: String) {
+        try {
+            val json = JSONObject(payload)
+            if (!MqttManager.getInstance(this).isRelevantToThisScanner(json)) return
+            val status = json.optString("status", "Unknown")
+            val message = json.optString("message", "")
+
+            runOnUiThread {
+                binding.btnAllAssigned.isEnabled = true
+                if (status.equals("Success", ignoreCase = true)) {
+                    palletSequence = 1
+                    showPrintDialog()
+                } else {
+                    AlertDialog.Builder(this)
+                        .setTitle("Completion Failed")
+                        .setMessage(message)
+                        .setPositiveButton("OK", null)
+                        .show()
+                }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
     private fun submitTag(rfid: String, product: String) {
         val productid = product.split(" - ").firstOrNull() ?: product
         val docNum = intent.getStringExtra("doc_number") ?: ""
@@ -208,7 +242,7 @@ class TagAssignmentActivity : AppCompatActivity() {
         val payload = JSONObject().apply {
             put("ts", Instant.now().toString())
             put("deviceId", "scanner_$scannerInt")
-            put("sessionId", getSessionId())
+            getSessionId().takeIf { it.isNotBlank() }?.let { put("sessionId", it) }
             put("tagId", rfid)
             put("sourceDocumentType", docType)
             put("sourceDocumentNumber", docNum)
@@ -234,19 +268,19 @@ class TagAssignmentActivity : AppCompatActivity() {
         val payload = JSONObject().apply {
             put("ts", Instant.now().toString())
             put("deviceId", "scanner_$scannerInt")
-            put("sessionId", getSessionId())
+            getSessionId().takeIf { it.isNotBlank() }?.let { put("sessionId", it) }
             put("allAssigned", true)
         }
 
         val topic = "PPNAM/scanner_$scannerInt/assignment"
+        binding.btnAllAssigned.isEnabled = false
         MqttManager.getInstance(this).publish(topic, payload.toString()) { throwable ->
             runOnUiThread {
                 if (throwable != null) {
                     Toast.makeText(this, "Publish Failed: ${throwable.message}", Toast.LENGTH_LONG).show()
+                    binding.btnAllAssigned.isEnabled = true
                 } else {
                     Toast.makeText(this, "Completing assignments...", Toast.LENGTH_SHORT).show()
-                    palletSequence = 1
-                    showPrintDialog()
                 }
             }
         }
@@ -271,7 +305,7 @@ class TagAssignmentActivity : AppCompatActivity() {
         val payload = JSONObject().apply {
             put("ts", Instant.now().toString())
             put("deviceId", "scanner_$scannerInt")
-            put("sessionId", getSessionId())
+            getSessionId().takeIf { it.isNotBlank() }?.let { put("sessionId", it) }
             put("sourceDocumentNumber", docNum)
             put("printAll", true)
         }
@@ -337,6 +371,7 @@ class TagAssignmentActivity : AppCompatActivity() {
         super.onDestroy()
         val mqtt = MqttManager.getInstance(this)
         mqtt.unsubscribe("PPNAM/station_$stationInt/assignment_result")
+        mqtt.unsubscribe("PPNAM/station_$stationInt/all_assigned_result")
         mqtt.unsubscribe("PPNAM/station_$stationInt/print_all_result")
         mqtt.unsubscribe("PPNAM/station_$stationInt/sap_products_response")
     }

@@ -114,10 +114,11 @@ class TagAssignmentActivity : AppCompatActivity() {
 
     private fun subscribeToResults() {
         val mqtt = MqttManager.getInstance(this)
-        val assignmentResultTopic = "PPNAM/station_$stationInt/assignment_result"
-        val allAssignedResultTopic = "PPNAM/station_$stationInt/all_assigned_result"
-        val printResultTopic = "PPNAM/station_$stationInt/print_all_result"
-        val productsResponseTopic = "PPNAM/station_$stationInt/sap_products_response"
+        val assignmentResultTopic = "PPNAM/scanner_$scannerInt/res/assignment_result"
+        val allAssignedResultTopic = "PPNAM/scanner_$scannerInt/res/all_assigned_result"
+        val printResultTopic = "PPNAM/scanner_$scannerInt/res/print_all_result"
+        val directProductsResponseTopic = "PPNAM/scanner_$scannerInt/res/sap_products_response"
+        val broadcastProductsResponseTopic = "PPNAM/station_$stationInt/res/sap_products_response"
 
         mqtt.subscribe(assignmentResultTopic) { publish ->
             val payload = String(publish.payloadAsBytes, StandardCharsets.UTF_8)
@@ -134,7 +135,12 @@ class TagAssignmentActivity : AppCompatActivity() {
             handlePrintResult(payload)
         }
 
-        mqtt.subscribe(productsResponseTopic) { publish ->
+        mqtt.subscribe(directProductsResponseTopic) { publish ->
+            val payload = String(publish.payloadAsBytes, StandardCharsets.UTF_8)
+            handleProductsResponse(payload)
+        }
+
+        mqtt.subscribe(broadcastProductsResponseTopic) { publish ->
             val payload = String(publish.payloadAsBytes, StandardCharsets.UTF_8)
             handleProductsResponse(payload)
         }
@@ -256,7 +262,7 @@ class TagAssignmentActivity : AppCompatActivity() {
             put("actualPalletSequence", palletSequence)
         }
 
-        val topic = "PPNAM/scanner_$scannerInt/assignment_v2"
+        val topic = "PPNAM/scanner_$scannerInt/req/assignment_v2"
         binding.btnSubmit.isEnabled = false
         MqttManager.getInstance(this).publish(topic, payload.toString()) { throwable ->
             runOnUiThread {
@@ -278,7 +284,7 @@ class TagAssignmentActivity : AppCompatActivity() {
             put("allAssigned", true)
         }
 
-        val topic = "PPNAM/scanner_$scannerInt/assignment"
+        val topic = "PPNAM/scanner_$scannerInt/req/assignment"
         binding.btnAllAssigned.isEnabled = false
         MqttManager.getInstance(this).publish(topic, payload.toString()) { throwable ->
             runOnUiThread {
@@ -316,7 +322,7 @@ class TagAssignmentActivity : AppCompatActivity() {
             put("printAll", true)
         }
 
-        val topic = "PPNAM/scanner_$scannerInt/print_all"
+        val topic = "PPNAM/scanner_$scannerInt/req/print_all"
         MqttManager.getInstance(this).publish(topic, payload.toString()) { throwable ->
             runOnUiThread {
                 if (throwable != null) {
@@ -377,9 +383,10 @@ class TagAssignmentActivity : AppCompatActivity() {
         super.onDestroy()
         val mqtt = MqttManager.getInstance(this)
         mqtt.removeConnectionStatusListener(connectionStatusListener)
-        mqtt.unsubscribe("PPNAM/station_$stationInt/assignment_result")
-        mqtt.unsubscribe("PPNAM/station_$stationInt/all_assigned_result")
-        mqtt.unsubscribe("PPNAM/station_$stationInt/print_all_result")
-        mqtt.unsubscribe("PPNAM/station_$stationInt/sap_products_response")
+        mqtt.unsubscribe("PPNAM/scanner_$scannerInt/res/assignment_result")
+        mqtt.unsubscribe("PPNAM/scanner_$scannerInt/res/all_assigned_result")
+        mqtt.unsubscribe("PPNAM/scanner_$scannerInt/res/print_all_result")
+        mqtt.unsubscribe("PPNAM/scanner_$scannerInt/res/sap_products_response")
+        mqtt.unsubscribe("PPNAM/station_$stationInt/res/sap_products_response")
     }
 }

@@ -21,7 +21,6 @@ class ManualSapEntryActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityManualSapEntryBinding
     private var scanner_int = 1
-    private var station_int = 1
     private val docTypes = listOf("Purchase Order", "Transfer Request")
 
     private val connectionStatusListener: (ConnectionStatus) -> Unit = { status ->
@@ -54,7 +53,6 @@ class ManualSapEntryActivity : AppCompatActivity() {
     private fun loadSettings() {
         val prefs = getSharedPreferences("settings", Context.MODE_PRIVATE)
         scanner_int = prefs.getInt("scanner_int", 1)
-        station_int = prefs.getInt("station_int", 1)
 
         val sapPrefs = getSharedPreferences("sap_data", Context.MODE_PRIVATE)
         binding.etDocNumber.setText(sapPrefs.getString("last_doc_number", ""))
@@ -74,7 +72,7 @@ class ManualSapEntryActivity : AppCompatActivity() {
     }
 
     private fun subscribeToResults() {
-        val sapResultTopic = "PPNAM/station_$station_int/sap_result"
+        val sapResultTopic = "PPNAM/scanner_$scanner_int/res/sap_result"
         MqttManager.getInstance(this).subscribe(sapResultTopic) { publish ->
             val payload = String(publish.payloadAsBytes, StandardCharsets.UTF_8)
             handleSapResult(payload)
@@ -147,7 +145,7 @@ class ManualSapEntryActivity : AppCompatActivity() {
         }
 
         binding.btnSubmit.isEnabled = false
-        val topic = "PPNAM/scanner_$scanner_int/sap"
+        val topic = "PPNAM/scanner_$scanner_int/req/sap"
         MqttManager.getInstance(this).publish(topic, payload.toString()) { throwable ->
             runOnUiThread {
                 if (throwable != null) {
@@ -172,7 +170,7 @@ class ManualSapEntryActivity : AppCompatActivity() {
         super.onDestroy()
         val mqtt = MqttManager.getInstance(this)
         mqtt.removeConnectionStatusListener(connectionStatusListener)
-        val sapResultTopic = "PPNAM/station_$station_int/sap_result"
+        val sapResultTopic = "PPNAM/scanner_$scanner_int/res/sap_result"
         mqtt.unsubscribe(sapResultTopic)
     }
 }

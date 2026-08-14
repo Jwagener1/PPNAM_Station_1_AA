@@ -21,7 +21,6 @@ class ReassignActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityReassignBinding
     private var scannerInt = 1
-    private var stationInt = 1
 
     private val connectionStatusListener: (ConnectionStatus) -> Unit = { status ->
         runOnUiThread { binding.connectionPill.setStatus(status) }
@@ -75,7 +74,6 @@ class ReassignActivity : AppCompatActivity() {
     private fun loadSettings() {
         val prefs = getSharedPreferences("settings", MODE_PRIVATE)
         scannerInt = prefs.getInt("scanner_int", 1)
-        stationInt = prefs.getInt("station_int", 1)
     }
 
     private fun setupToolbar() {
@@ -86,7 +84,7 @@ class ReassignActivity : AppCompatActivity() {
 
     private fun subscribeToResults() {
         val mqtt = MqttManager.getInstance(this)
-        val reassignResultTopic = "PPNAM/station_$stationInt/reassign_result"
+        val reassignResultTopic = "PPNAM/scanner_$scannerInt/res/reassign_result"
         mqtt.subscribe(reassignResultTopic) { publish ->
             val payload = String(publish.payloadAsBytes, StandardCharsets.UTF_8)
             handleReassignResult(payload)
@@ -135,7 +133,7 @@ class ReassignActivity : AppCompatActivity() {
             put("barcode", barcode)
         }
 
-        val topic = "PPNAM/scanner_$scannerInt/reassign"
+        val topic = "PPNAM/scanner_$scannerInt/req/reassign"
         binding.btnSubmit.isEnabled = false
         MqttManager.getInstance(this).publish(topic, payload.toString()) { throwable ->
             runOnUiThread {
@@ -182,6 +180,6 @@ class ReassignActivity : AppCompatActivity() {
         super.onDestroy()
         val mqtt = MqttManager.getInstance(this)
         mqtt.removeConnectionStatusListener(connectionStatusListener)
-        mqtt.unsubscribe("PPNAM/station_$stationInt/reassign_result")
+        mqtt.unsubscribe("PPNAM/scanner_$scannerInt/res/reassign_result")
     }
 }

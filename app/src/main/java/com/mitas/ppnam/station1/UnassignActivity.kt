@@ -20,7 +20,6 @@ class UnassignActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityUnassignBinding
     private var scannerInt = 1
-    private var stationInt = 1
 
     private val connectionStatusListener: (ConnectionStatus) -> Unit = { status ->
         runOnUiThread { binding.connectionPill.setStatus(status) }
@@ -59,7 +58,6 @@ class UnassignActivity : AppCompatActivity() {
     private fun loadSettings() {
         val prefs = getSharedPreferences("settings", Context.MODE_PRIVATE)
         scannerInt = prefs.getInt("scanner_int", 1)
-        stationInt = prefs.getInt("station_int", 1)
     }
 
     private fun setupToolbar() {
@@ -70,7 +68,7 @@ class UnassignActivity : AppCompatActivity() {
 
     private fun subscribeToResults() {
         val mqtt = MqttManager.getInstance(this)
-        val unassignResultTopic = "PPNAM/station_$stationInt/unassign_result"
+        val unassignResultTopic = "PPNAM/scanner_$scannerInt/res/unassign_result"
         mqtt.subscribe(unassignResultTopic) { publish ->
             val payload = String(publish.payloadAsBytes)
             handleUnassignResult(payload)
@@ -108,7 +106,7 @@ class UnassignActivity : AppCompatActivity() {
             put("tagId", rfid)
         }
 
-        val topic = "PPNAM/scanner_$scannerInt/unassign"
+        val topic = "PPNAM/scanner_$scannerInt/req/unassign"
         MqttManager.getInstance(this).publish(topic, payload.toString()) { throwable ->
             runOnUiThread {
                 if (throwable != null) {
@@ -149,6 +147,6 @@ class UnassignActivity : AppCompatActivity() {
         super.onDestroy()
         val mqtt = MqttManager.getInstance(this)
         mqtt.removeConnectionStatusListener(connectionStatusListener)
-        mqtt.unsubscribe("PPNAM/station_$stationInt/unassign_result")
+        mqtt.unsubscribe("PPNAM/scanner_$scannerInt/res/unassign_result")
     }
 }

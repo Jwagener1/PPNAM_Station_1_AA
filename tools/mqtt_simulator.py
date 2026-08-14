@@ -13,6 +13,14 @@ contract, reverse-engineered from Device_Initializing/RfidDeviceInitializer.cs
 and Models/Rfid*.cs in PPNAM-Station-1-App (read-only reference, no code
 shared or copied from that repo).
 
+Topic convention (post "Align MQTT topic structure with Station 2 req/res
+convention"): requests are PPNAM/{deviceId}/req/{suffix}; direct replies go
+to PPNAM/{requestingScannerId}/res/{suffix} with payload deviceId set to
+that scanner's id (not the station's own id); station-initiated broadcasts
+(tag_assignment_request, offload_start, and the broadcast variant of
+sap_products_response) go to PPNAM/station_N/res/{suffix} with deviceId
+"station_N". status is unchanged: PPNAM/{deviceId}/status, retained, LWT.
+
 Usage:
     python tools/mqtt_simulator.py [--station-id 1] [--scanner-id 1]
 
@@ -85,7 +93,8 @@ class StationSimulator:
         self.station_id = station_id
         self.scanner_id = scanner_id
         self.station_topic = f"PPNAM/station_{station_id}"
-        self.app_device_id = f"station_{station_id}"  # Windows always echoes its OWN id, not the scanner's
+        self.app_device_id = f"station_{station_id}"  # used only for station-initiated broadcasts
+        self.default_requester = f"scanner_{scanner_id}"  # fallback if a request omits deviceId
         self.force_fail = set()  # topic "kinds" whose next response should be an error (one-shot)
         self.lock = threading.Lock()
 
@@ -107,7 +116,7 @@ class StationSimulator:
         self.client.on_connect = self._on_connect
         self.client.on_message = self._on_message
 
-        # topic-suffix -> handler(payload: dict)
+        # topic-suffix -> handler(requester: str, payload: dict)
         self.handlers = {
             "sap": self.handle_sap,
             "sap_products_request": self.handle_sap_products_request,
@@ -138,10 +147,12 @@ class StationSimulator:
         except Exception:
             return  # not JSON (e.g. retained status messages) - ignore
 
+        # Requests are PPNAM/{deviceId}/req/{suffix} - anything else (our own
+        # res/ replies, status) is not an inbound request.
         parts = topic.split("/")
-        if len(parts) < 3:
+        if len(parts) < 4 or parts[2] != "req":
             return
-        device_id, suffix = parts[1], "/".join(parts[2:])
+        device_id, suffix = parts[1], "/".join(parts[3:])
 
         if not device_id.startswith("scanner_"):
             return  # only react to scanner-originated inbound topics
@@ -150,14 +161,28 @@ class StationSimulator:
         if handler is None:
             return
 
+        requester = payload.get("deviceId") or device_id
         print(f"[sim] <- {topic}: {json.dumps(payload)}")
         try:
-            handler(payload)
+            handler(requester, payload)
         except Exception as e:
             print(f"[sim] ERROR handling {topic}: {e}")
 
-    def publish_station(self, suffix: str, payload: dict):
-        topic = f"{self.station_topic}/{suffix}"
+    def publish_station(self, requester: str, suffix: str, payload: dict):
+        """Direct reply to the requesting scanner: PPNAM/{requester}/res/{suffix},
+        with payload deviceId forced to that scanner's id (EnsureResponseDeviceId)."""
+        payload = dict(payload)
+        payload["deviceId"] = requester
+        topic = f"PPNAM/{requester}/res/{suffix}"
+        body = json.dumps(payload)
+        print(f"[sim] -> {topic}: {body}")
+        self.client.publish(topic, body, qos=1)
+
+    def publish_broadcast(self, suffix: str, payload: dict):
+        """Station-initiated broadcast: PPNAM/station_N/res/{suffix}, deviceId=station_N."""
+        payload = dict(payload)
+        payload["deviceId"] = self.app_device_id
+        topic = f"{self.station_topic}/res/{suffix}"
         body = json.dumps(payload)
         print(f"[sim] -> {topic}: {body}")
         self.client.publish(topic, body, qos=1)
@@ -185,14 +210,13 @@ class StationSimulator:
         return None
 
     # -- handlers -----------------------------------------------------------
-    def handle_sap(self, payload):
+    def handle_sap(self, requester, payload):
         doc_type = payload.get("sourceDocumentType", "")
         doc_number = payload.get("sourceDocumentNumber", "")
 
         if self.should_fail("sap") or not doc_type or not doc_number:
-            self.publish_station("sap_result", {
+            self.publish_station(requester, "sap_result", {
                 "ts": now_iso(),
-                "deviceId": self.app_device_id,
                 "status": "Failed",
                 "sourceDocumentType": doc_type,
                 "sourceDocumentNumber": doc_number,
@@ -205,9 +229,8 @@ class StationSimulator:
         self.sessions_by_id[session.session_id] = session
         self.sessions_by_doc[doc_number] = session
 
-        self.publish_station("sap_result", {
+        self.publish_station(requester, "sap_result", {
             "ts": now_iso(),
-            "deviceId": self.app_device_id,
             "status": "Success",
             "sessionId": session.session_id,
             "sourceDocumentType": doc_type,
@@ -215,15 +238,14 @@ class StationSimulator:
             "message": "Session loaded successfully",
         })
 
-    def handle_sap_products_request(self, payload):
+    def handle_sap_products_request(self, requester, payload):
         doc_type = payload.get("sourceDocumentType", "")
         doc_number = payload.get("sourceDocumentNumber", "")
         session = self.resolve_session(payload)
 
         if self.should_fail("sap_products_request") or session is None:
-            self.publish_station("sap_products_response", {
+            self.publish_station(requester, "sap_products_response", {
                 "ts": now_iso(),
-                "deviceId": self.app_device_id,
                 "status": "Failed",
                 "sourceDocumentType": doc_type,
                 "sourceDocumentNumber": doc_number,
@@ -232,9 +254,8 @@ class StationSimulator:
             })
             return
 
-        self.publish_station("sap_products_response", {
+        self.publish_station(requester, "sap_products_response", {
             "ts": now_iso(),
-            "deviceId": self.app_device_id,
             "status": "Success",
             "sessionId": session.session_id,
             "sourceDocumentType": session.doc_type,
@@ -243,16 +264,15 @@ class StationSimulator:
             "message": "Products returned successfully",
         })
 
-    def handle_sap_products_selected(self, payload):
+    def handle_sap_products_selected(self, requester, payload):
         doc_type = payload.get("sourceDocumentType", "")
         doc_number = payload.get("sourceDocumentNumber", "")
         codes = payload.get("selectedProductCodes") or []
         session = self.resolve_session(payload)
 
         if self.should_fail("sap_products_selected") or session is None or not codes:
-            self.publish_station("sap_products_selected_result", {
+            self.publish_station(requester, "sap_products_selected_result", {
                 "ts": now_iso(),
-                "deviceId": self.app_device_id,
                 "status": "Failed",
                 "sourceDocumentType": doc_type,
                 "sourceDocumentNumber": doc_number,
@@ -262,9 +282,8 @@ class StationSimulator:
             })
             return
 
-        self.publish_station("sap_products_selected_result", {
+        self.publish_station(requester, "sap_products_selected_result", {
             "ts": now_iso(),
-            "deviceId": self.app_device_id,
             "status": "Success",
             "sessionId": session.session_id,
             "sourceDocumentType": session.doc_type,
@@ -274,22 +293,21 @@ class StationSimulator:
             "message": "Product selection saved",
         })
 
-    def handle_assignment_or_all_assigned(self, payload):
+    def handle_assignment_or_all_assigned(self, requester, payload):
         if payload.get("allAssigned"):
-            self._handle_all_assigned(payload)
+            self._handle_all_assigned(requester, payload)
         else:
-            self._handle_single_assignment(payload)
+            self._handle_single_assignment(requester, payload)
 
-    def _handle_single_assignment(self, payload):
+    def _handle_single_assignment(self, requester, payload):
         session = self.resolve_session(payload)
         tag_id = payload.get("tagId", "")
         doc_number = payload.get("sourceDocumentNumber", "")
         actual_sequence = payload.get("actualPalletSequence")
 
         if self.should_fail("assignment") or session is None:
-            self.publish_station("assignment_result", {
+            self.publish_station(requester, "assignment_result", {
                 "ts": now_iso(),
-                "deviceId": self.app_device_id,
                 "status": "Failed",
                 "sourceDocumentNumber": doc_number,
                 "tagId": tag_id,
@@ -303,9 +321,8 @@ class StationSimulator:
         pallet_code = f"PALLET-{session.pallet_row_seq:03d}"
         barcode = f"BC{abs(hash((session.session_id, session.pallet_row_seq))) % 10**10:010d}"
 
-        self.publish_station("assignment_result", {
+        self.publish_station(requester, "assignment_result", {
             "ts": now_iso(),
-            "deviceId": self.app_device_id,
             "status": "Success",
             "sessionId": session.session_id,
             "sourceDocumentNumber": session.doc_number,
@@ -317,35 +334,32 @@ class StationSimulator:
             "message": f"{pallet_code} assigned",
         })
 
-    def _handle_all_assigned(self, payload):
+    def _handle_all_assigned(self, requester, payload):
         session = self.resolve_session(payload)
 
         if self.should_fail("all_assigned") or session is None:
-            self.publish_station("all_assigned_result", {
+            self.publish_station(requester, "all_assigned_result", {
                 "ts": now_iso(),
-                "deviceId": self.app_device_id,
                 "status": "Failed",
                 "message": "No loaded receiving session was found for that source document.",
             })
             return
 
-        self.publish_station("all_assigned_result", {
+        self.publish_station(requester, "all_assigned_result", {
             "ts": now_iso(),
-            "deviceId": self.app_device_id,
             "status": "Success",
             "sessionId": session.session_id,
             "palletCount": session.assigned_count,
             "message": f"All {session.assigned_count} pallets assigned",
         })
 
-    def handle_print_all(self, payload):
+    def handle_print_all(self, requester, payload):
         session = self.resolve_session(payload)
         doc_number = payload.get("sourceDocumentNumber", "")
 
         if self.should_fail("print_all") or session is None or session.assigned_count == 0:
-            self.publish_station("print_all_result", {
+            self.publish_station(requester, "print_all_result", {
                 "ts": now_iso(),
-                "deviceId": self.app_device_id,
                 "status": "Failed",
                 "sourceDocumentNumber": doc_number,
                 "totalFound": 0,
@@ -354,9 +368,8 @@ class StationSimulator:
             })
             return
 
-        self.publish_station("print_all_result", {
+        self.publish_station(requester, "print_all_result", {
             "ts": now_iso(),
-            "deviceId": self.app_device_id,
             "status": "Success",
             "sessionId": session.session_id,
             "sourceDocumentNumber": session.doc_number,
@@ -365,7 +378,7 @@ class StationSimulator:
             "message": f"Printed {session.assigned_count} labels",
         })
 
-    def handle_offload(self, payload):
+    def handle_offload(self, requester, payload):
         session = self.resolve_session(payload)
         tag_id = payload.get("tagId", "")
         barcode = payload.get("barcode", "")
@@ -376,9 +389,8 @@ class StationSimulator:
         bag_count = payload.get("bagCount")
 
         if self.should_fail("offload") or session is None:
-            self.publish_station("offload_result", {
+            self.publish_station(requester, "offload_result", {
                 "ts": now_iso(),
-                "deviceId": self.app_device_id,
                 "status": "Failed",
                 "sourceDocumentNumber": doc_number,
                 "tagId": tag_id,
@@ -390,9 +402,8 @@ class StationSimulator:
         session.offloaded_count += 1
         pallet_weight = (bag_weight or 0) * (bag_count or 1) if bag_weight else None
 
-        self.publish_station("offload_result", {
+        self.publish_station(requester, "offload_result", {
             "ts": now_iso(),
-            "deviceId": self.app_device_id,
             "status": "Success",
             "sessionId": session.session_id,
             "sourceDocumentNumber": session.doc_number,
@@ -410,14 +421,13 @@ class StationSimulator:
             "message": "Offload recorded",
         })
 
-    def handle_all_offloaded(self, payload):
+    def handle_all_offloaded(self, requester, payload):
         session = self.resolve_session(payload)
         doc_number = payload.get("sourceDocumentNumber", "")
 
         if self.should_fail("all_offloaded") or session is None:
-            self.publish_station("all_offloaded_result", {
+            self.publish_station(requester, "all_offloaded_result", {
                 "ts": now_iso(),
-                "deviceId": self.app_device_id,
                 "status": "Failed",
                 "sourceDocumentNumber": doc_number,
                 "message": "No loaded receiving session was found for that source document.",
@@ -428,9 +438,8 @@ class StationSimulator:
         finalized = session.offloaded_count
         incomplete = max(total - finalized, 0)
 
-        self.publish_station("all_offloaded_result", {
+        self.publish_station(requester, "all_offloaded_result", {
             "ts": now_iso(),
-            "deviceId": self.app_device_id,
             "status": "Success",
             "sessionId": session.session_id,
             "sourceDocumentNumber": session.doc_number,
@@ -444,13 +453,12 @@ class StationSimulator:
             "message": f"Session complete. {finalized} pallets finalized.",
         })
 
-    def handle_unassign(self, payload):
+    def handle_unassign(self, requester, payload):
         tag_id = payload.get("tagId", "")
 
         if self.should_fail("unassign"):
-            self.publish_station("unassign_result", {
+            self.publish_station(requester, "unassign_result", {
                 "ts": now_iso(),
-                "deviceId": self.app_device_id,
                 "status": "Failed",
                 "tagId": tag_id,
                 "message": f"No pallet found for tag {tag_id}",
@@ -458,9 +466,8 @@ class StationSimulator:
             return
 
         self.history_count += 1
-        self.publish_station("unassign_result", {
+        self.publish_station(requester, "unassign_result", {
             "ts": now_iso(),
-            "deviceId": self.app_device_id,
             "status": "Success",
             "tagId": tag_id,
             "palletCount": 1,
@@ -468,15 +475,14 @@ class StationSimulator:
             "message": f"Tag {tag_id} unassigned",
         })
 
-    def handle_reassign(self, payload):
+    def handle_reassign(self, requester, payload):
         tag_id = payload.get("tagId", "")
         barcode = payload.get("barcode", "")
 
         # Real app uses "Error" (not "Failed") for this one topic - mirrored faithfully.
         if self.should_fail("reassign"):
-            self.publish_station("reassign_result", {
+            self.publish_station(requester, "reassign_result", {
                 "ts": now_iso(),
-                "deviceId": self.app_device_id,
                 "status": "Error",
                 "tagId": tag_id,
                 "barcode": barcode,
@@ -484,9 +490,8 @@ class StationSimulator:
             })
             return
 
-        self.publish_station("reassign_result", {
+        self.publish_station(requester, "reassign_result", {
             "ts": now_iso(),
-            "deviceId": self.app_device_id,
             "status": "Success",
             "tagId": tag_id,
             "barcode": barcode,

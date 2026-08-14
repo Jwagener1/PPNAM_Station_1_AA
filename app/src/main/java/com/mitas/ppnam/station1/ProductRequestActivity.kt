@@ -88,10 +88,18 @@ class ProductRequestActivity : AppCompatActivity() {
 
     private fun subscribeToResults() {
         val mqtt = MqttManager.getInstance(this)
-        val productsResponseTopic = "PPNAM/station_$stationInt/sap_products_response"
-        val selectedResultTopic = "PPNAM/station_$stationInt/sap_products_selected_result"
+        // Direct reply to our own sap_products_request, plus the station-initiated
+        // broadcast variant (fires whenever product selection changes independently).
+        val directProductsResponseTopic = "PPNAM/scanner_$scannerInt/res/sap_products_response"
+        val broadcastProductsResponseTopic = "PPNAM/station_$stationInt/res/sap_products_response"
+        val selectedResultTopic = "PPNAM/scanner_$scannerInt/res/sap_products_selected_result"
 
-        mqtt.subscribe(productsResponseTopic) { publish ->
+        mqtt.subscribe(directProductsResponseTopic) { publish ->
+            val payload = String(publish.payloadAsBytes, StandardCharsets.UTF_8)
+            handleProductsResponse(payload)
+        }
+
+        mqtt.subscribe(broadcastProductsResponseTopic) { publish ->
             val payload = String(publish.payloadAsBytes, StandardCharsets.UTF_8)
             handleProductsResponse(payload)
         }
@@ -166,7 +174,7 @@ class ProductRequestActivity : AppCompatActivity() {
             put("sourceDocumentNumber", docNum)
         }
 
-        val topic = "PPNAM/scanner_$scannerInt/sap_products_request"
+        val topic = "PPNAM/scanner_$scannerInt/req/sap_products_request"
         
         binding.btnFetchProducts.isEnabled = false
         MqttManager.getInstance(this).publish(topic, payload.toString()) { throwable ->
@@ -269,7 +277,7 @@ class ProductRequestActivity : AppCompatActivity() {
             put("selectedProductCodes", codesArray)
         }
 
-        val topic = "PPNAM/scanner_$scannerInt/sap_products_selected"
+        val topic = "PPNAM/scanner_$scannerInt/req/sap_products_selected"
 
         binding.btnSubmitRequest.isEnabled = false
         binding.btnFetchProducts.isEnabled = false
@@ -301,8 +309,9 @@ class ProductRequestActivity : AppCompatActivity() {
         super.onDestroy()
         val mqtt = MqttManager.getInstance(this)
         mqtt.removeConnectionStatusListener(connectionStatusListener)
-        mqtt.unsubscribe("PPNAM/station_$stationInt/sap_products_response")
-        mqtt.unsubscribe("PPNAM/station_$stationInt/sap_products_selected_result")
+        mqtt.unsubscribe("PPNAM/scanner_$scannerInt/res/sap_products_response")
+        mqtt.unsubscribe("PPNAM/station_$stationInt/res/sap_products_response")
+        mqtt.unsubscribe("PPNAM/scanner_$scannerInt/res/sap_products_selected_result")
     }
 
     data class ProductItem(val code: String, val description: String, var isSelected: Boolean = false)

@@ -27,6 +27,10 @@ class TagAssignmentActivity : AppCompatActivity() {
     private var selectedProducts: List<String> = emptyList()
     private var palletSequence: Int = 1
 
+    private val connectionStatusListener: (ConnectionStatus) -> Unit = { status ->
+        runOnUiThread { binding.connectionPill.setStatus(status) }
+    }
+
     private val rfidReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             if (intent?.action == "com.rscja.scanner.action.scanner.RFID") {
@@ -43,12 +47,14 @@ class TagAssignmentActivity : AppCompatActivity() {
         binding = ActivityTagAssignmentBinding.inflate(layoutInflater)
         enableEdgeToEdge()
         setContentView(binding.root)
+        forceLightStatusBarIcons()
 
         loadSettings()
         setupToolbar()
         setupProductSpinner()
         
         subscribeToResults()
+        MqttManager.getInstance(this).addConnectionStatusListener(connectionStatusListener)
 
         ViewCompat.setOnApplyWindowInsetsListener(binding.main) { v, insets ->
             val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
@@ -197,7 +203,7 @@ class TagAssignmentActivity : AppCompatActivity() {
                     binding.etRfid.setText("")
                     palletSequence++
                 } else {
-                    AlertDialog.Builder(this)
+                    AlertDialog.Builder(this, R.style.AppAlertDialogTheme)
                         .setTitle("Assignment Failed")
                         .setMessage(message)
                         .setPositiveButton("OK", null)
@@ -222,7 +228,7 @@ class TagAssignmentActivity : AppCompatActivity() {
                     palletSequence = 1
                     showPrintDialog()
                 } else {
-                    AlertDialog.Builder(this)
+                    AlertDialog.Builder(this, R.style.AppAlertDialogTheme)
                         .setTitle("Completion Failed")
                         .setMessage(message)
                         .setPositiveButton("OK", null)
@@ -287,7 +293,7 @@ class TagAssignmentActivity : AppCompatActivity() {
     }
 
     private fun showPrintDialog() {
-        AlertDialog.Builder(this)
+        AlertDialog.Builder(this, R.style.AppAlertDialogTheme)
             .setTitle("Assignments Complete")
             .setMessage("Do you want to print all pallet labels now?")
             .setPositiveButton("Print All") { _, _ ->
@@ -334,7 +340,7 @@ class TagAssignmentActivity : AppCompatActivity() {
     }
 
     private fun showConfirmationDialog() {
-        AlertDialog.Builder(this)
+        AlertDialog.Builder(this, R.style.AppAlertDialogTheme)
             .setTitle("Confirm Completion")
             .setMessage("Are you sure all tag assignments have been completed?")
             .setPositiveButton("Yes") { _, _ ->
@@ -370,6 +376,7 @@ class TagAssignmentActivity : AppCompatActivity() {
     override fun onDestroy() {
         super.onDestroy()
         val mqtt = MqttManager.getInstance(this)
+        mqtt.removeConnectionStatusListener(connectionStatusListener)
         mqtt.unsubscribe("PPNAM/station_$stationInt/assignment_result")
         mqtt.unsubscribe("PPNAM/station_$stationInt/all_assigned_result")
         mqtt.unsubscribe("PPNAM/station_$stationInt/print_all_result")

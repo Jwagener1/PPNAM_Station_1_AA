@@ -13,7 +13,14 @@
         android:layout_height="?attr/actionBarSize"
         android:background="@color/card_background"
         app:layout_constraintTop_toTopOf="parent"
-        app:titleTextColor="@color/text_primary" />
+        app:titleTextColor="@color/text_primary">
+
+        <com.mitas.ppnam.station1.ConnectionPillView
+            android:id="@+id/connectionPill"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="end" />
+    </androidx.appcompat.widget.Toolbar>
 
     <com.google.android.material.card.MaterialCardView
         android:id="@+id/cardStatus"

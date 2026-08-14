@@ -31,17 +31,23 @@ class ProductRequestActivity : AppCompatActivity() {
     private val productAdapter = ProductAdapter()
     private var submittedProductList: ArrayList<String>? = null
 
+    private val connectionStatusListener: (ConnectionStatus) -> Unit = { status ->
+        runOnUiThread { binding.connectionPill.setStatus(status) }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityProductRequestBinding.inflate(layoutInflater)
         enableEdgeToEdge()
         setContentView(binding.root)
+        forceLightStatusBarIcons()
 
         loadSettings()
         setupToolbar()
         setupRecyclerView()
         
         subscribeToResults()
+        MqttManager.getInstance(this).addConnectionStatusListener(connectionStatusListener)
 
         binding.btnFetchProducts.setOnClickListener { fetchProducts() }
         binding.btnSubmitRequest.setOnClickListener { submitSelectedProducts() }
@@ -122,7 +128,7 @@ class ProductRequestActivity : AppCompatActivity() {
                     startActivity(intent)
                     finish()
                 } else {
-                    AlertDialog.Builder(this)
+                    AlertDialog.Builder(this, R.style.AppAlertDialogTheme)
                         .setTitle("Submission Failed")
                         .setMessage(message)
                         .setPositiveButton("OK", null)
@@ -294,6 +300,7 @@ class ProductRequestActivity : AppCompatActivity() {
     override fun onDestroy() {
         super.onDestroy()
         val mqtt = MqttManager.getInstance(this)
+        mqtt.removeConnectionStatusListener(connectionStatusListener)
         mqtt.unsubscribe("PPNAM/station_$stationInt/sap_products_response")
         mqtt.unsubscribe("PPNAM/station_$stationInt/sap_products_selected_result")
     }

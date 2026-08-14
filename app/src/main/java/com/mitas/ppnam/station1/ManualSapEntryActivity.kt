@@ -24,17 +24,23 @@ class ManualSapEntryActivity : AppCompatActivity() {
     private var station_int = 1
     private val docTypes = listOf("Purchase Order", "Transfer Request")
 
+    private val connectionStatusListener: (ConnectionStatus) -> Unit = { status ->
+        runOnUiThread { binding.connectionPill.setStatus(status) }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityManualSapEntryBinding.inflate(layoutInflater)
         enableEdgeToEdge()
         setContentView(binding.root)
+        forceLightStatusBarIcons()
 
         loadSettings()
         setupToolbar()
         setupSpinners()
         
         subscribeToResults()
+        MqttManager.getInstance(this).addConnectionStatusListener(connectionStatusListener)
 
         binding.btnSubmit.setOnClickListener { validateAndSubmit() }
 
@@ -164,7 +170,9 @@ class ManualSapEntryActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
+        val mqtt = MqttManager.getInstance(this)
+        mqtt.removeConnectionStatusListener(connectionStatusListener)
         val sapResultTopic = "PPNAM/station_$station_int/sap_result"
-        MqttManager.getInstance(this).unsubscribe(sapResultTopic)
+        mqtt.unsubscribe(sapResultTopic)
     }
 }

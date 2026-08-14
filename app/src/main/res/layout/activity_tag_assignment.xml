@@ -17,7 +17,14 @@
             android:layout_width="match_parent"
             android:layout_height="?attr/actionBarSize"
             android:background="@color/card_background"
-            app:titleTextColor="@color/text_primary" />
+            app:titleTextColor="@color/text_primary">
+
+            <com.mitas.ppnam.station1.ConnectionPillView
+                android:id="@+id/connectionPill"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="end" />
+        </com.google.android.material.appbar.MaterialToolbar>
     </com.google.android.material.appbar.AppBarLayout>
 
     <com.google.android.material.card.MaterialCardView

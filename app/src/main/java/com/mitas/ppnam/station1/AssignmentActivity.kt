@@ -27,6 +27,10 @@ class AssignmentActivity : AppCompatActivity() {
     private var station_int = 1
     private val bagSizeOptions = listOf(450, 500, 600, 750, 1000)
 
+    private val connectionStatusListener: (ConnectionStatus) -> Unit = { status ->
+        runOnUiThread { binding.connectionPill.setStatus(status) }
+    }
+
     private val barcodeReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             if (intent?.action == "com.scanner.broadcast") {
@@ -54,6 +58,7 @@ class AssignmentActivity : AppCompatActivity() {
         binding = ActivityAssignmentBinding.inflate(layoutInflater)
         enableEdgeToEdge()
         setContentView(binding.root)
+        forceLightStatusBarIcons()
 
         loadSettings()
         setupToolbar()
@@ -61,6 +66,7 @@ class AssignmentActivity : AppCompatActivity() {
         setupBatchRefToggle()
         
         subscribeToResults()
+        MqttManager.getInstance(this).addConnectionStatusListener(connectionStatusListener)
 
         ViewCompat.setOnApplyWindowInsetsListener(binding.main) { v, insets ->
             val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
@@ -140,13 +146,13 @@ class AssignmentActivity : AppCompatActivity() {
                     Toast.makeText(this, "Success: $palletCode updated.", Toast.LENGTH_SHORT).show()
                     clearInputs()
                 } else if (status.equals("Mismatch", ignoreCase = true)) {
-                    AlertDialog.Builder(this)
+                    AlertDialog.Builder(this, R.style.AppAlertDialogTheme)
                         .setTitle("Pairing Mismatch")
                         .setMessage("$message\n\nPallet: $palletCode\nProduct: $productCode\nValidated: $pairValidated")
                         .setPositiveButton("OK", null)
                         .show()
                 } else {
-                    AlertDialog.Builder(this)
+                    AlertDialog.Builder(this, R.style.AppAlertDialogTheme)
                         .setTitle("Offload Failed")
                         .setMessage(message)
                         .setPositiveButton("OK", null)
@@ -176,14 +182,14 @@ class AssignmentActivity : AppCompatActivity() {
                         .putInt("current_step", 0)
                         .apply()
 
-                    AlertDialog.Builder(this)
+                    AlertDialog.Builder(this, R.style.AppAlertDialogTheme)
                         .setTitle("Session Complete")
                         .setMessage("$message\n\nFinalized: $finalizedCount\nIncomplete: $incompleteCount")
                         .setPositiveButton("Done") { _, _ -> finish() }
                         .setCancelable(false)
                         .show()
                 } else {
-                    AlertDialog.Builder(this)
+                    AlertDialog.Builder(this, R.style.AppAlertDialogTheme)
                         .setTitle("Completion Error")
                         .setMessage(message)
                         .setPositiveButton("OK", null)
@@ -252,7 +258,7 @@ class AssignmentActivity : AppCompatActivity() {
     }
 
     private fun showAllOffloadedDialog() {
-        AlertDialog.Builder(this)
+        AlertDialog.Builder(this, R.style.AppAlertDialogTheme)
             .setTitle("Confirm All Offloaded")
             .setMessage("Are you sure all items have been offloaded?")
             .setPositiveButton("Yes") { _, _ -> submitAllOffloaded() }
@@ -318,6 +324,7 @@ class AssignmentActivity : AppCompatActivity() {
     override fun onDestroy() {
         super.onDestroy()
         val mqtt = MqttManager.getInstance(this)
+        mqtt.removeConnectionStatusListener(connectionStatusListener)
         mqtt.unsubscribe("PPNAM/station_$station_int/offload_result")
         mqtt.unsubscribe("PPNAM/station_$station_int/all_offloaded_result")
     }

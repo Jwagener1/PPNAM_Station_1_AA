@@ -40,6 +40,11 @@
     <!-- Status Colours -->
     <color name="status_inactive">#475569</color>
 
+    <!-- Connection pill colours - matches Station 2's exact palette -->
+    <color name="pill_connected">#2BC36D</color>
+    <color name="pill_warning">#F0A13A</color>
+    <color name="pill_offline">#E25C5C</color>
+
     <!-- Legacy compatibility -->
     <color name="bg_dark">@color/window_background</color>
     <color name="surface_dark">@color/card_background</color>

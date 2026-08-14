@@ -5,6 +5,11 @@
         <item name="android:windowBackground">@color/window_background</item>
         <item name="colorSurface">@color/card_background</item>
         <item name="colorSurfaceVariant">@color/card_background_alt</item>
+        <!-- Material3 defaults colorOnSurface(Variant) to near-black; left unset, every
+             MaterialComponents OutlinedBox field's resting hint (which resolves against
+             colorOnSurface) renders near-invisible on this dark palette. -->
+        <item name="colorOnSurface">@color/text_primary</item>
+        <item name="colorOnSurfaceVariant">@color/text_muted</item>
 
         <!-- Primary / Accent -->
         <item name="colorPrimary">@color/primary_action</item>
@@ -18,7 +23,21 @@
         <!-- Status Bar -->
         <item name="android:statusBarColor">@color/window_background</item>
         <item name="android:windowLightStatusBar">false</item>
+
+        <!-- Without this, every AlertDialog.Builder(context) call renders on the platform's
+             default light dialog surface while inheriting this theme's light textColorPrimary/
+             Secondary (meant for the dark app background) - text ends up near-invisible
+             (light-on-white). -->
+        <item name="alertDialogTheme">@style/AppAlertDialogTheme</item>
+        <item name="android:alertDialogTheme">@style/AppAlertDialogTheme</item>
     </style>
 
     <style name="Theme.SysOneScanner" parent="Base.Theme.SysOneScanner" />
+
+    <style name="AppAlertDialogTheme" parent="ThemeOverlay.AppCompat.Dialog.Alert">
+        <item name="android:windowBackground">@color/card_background</item>
+        <item name="android:textColorPrimary">@color/text_primary</item>
+        <item name="android:textColorSecondary">@color/text_muted</item>
+        <item name="colorAccent">@color/primary_action</item>
+    </style>
 </resources>

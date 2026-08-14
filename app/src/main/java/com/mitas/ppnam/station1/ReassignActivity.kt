@@ -23,6 +23,10 @@ class ReassignActivity : AppCompatActivity() {
     private var scannerInt = 1
     private var stationInt = 1
 
+    private val connectionStatusListener: (ConnectionStatus) -> Unit = { status ->
+        runOnUiThread { binding.connectionPill.setStatus(status) }
+    }
+
     private val barcodeReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             if (intent?.action == "com.scanner.broadcast") {
@@ -50,10 +54,12 @@ class ReassignActivity : AppCompatActivity() {
         binding = ActivityReassignBinding.inflate(layoutInflater)
         enableEdgeToEdge()
         setContentView(binding.root)
+        forceLightStatusBarIcons()
 
         loadSettings()
         setupToolbar()
         subscribeToResults()
+        MqttManager.getInstance(this).addConnectionStatusListener(connectionStatusListener)
 
         ViewCompat.setOnApplyWindowInsetsListener(binding.main) { v, insets ->
             val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
@@ -174,6 +180,8 @@ class ReassignActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
-        MqttManager.getInstance(this).unsubscribe("PPNAM/station_$stationInt/reassign_result")
+        val mqtt = MqttManager.getInstance(this)
+        mqtt.removeConnectionStatusListener(connectionStatusListener)
+        mqtt.unsubscribe("PPNAM/station_$stationInt/reassign_result")
     }
 }

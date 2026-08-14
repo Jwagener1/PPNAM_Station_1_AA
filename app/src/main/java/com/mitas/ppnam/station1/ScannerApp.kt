@@ -126,7 +126,7 @@ class ScannerApp : Application() {
         // Don't stack dialogs
         activeDialog?.dismiss()
         
-        activeDialog = AlertDialog.Builder(activity)
+        activeDialog = AlertDialog.Builder(activity, R.style.AppAlertDialogTheme)
             .setTitle("SAP Product Request")
             .setMessage("New SAP product request received for Document #$docNum ($docType). Would you like to process it?")
             .setPositiveButton("Process") { _, _ ->
@@ -242,7 +242,7 @@ class ScannerApp : Application() {
 
         activeDialog?.dismiss()
 
-        activeDialog = AlertDialog.Builder(activity)
+        activeDialog = AlertDialog.Builder(activity, R.style.AppAlertDialogTheme)
             .setTitle("Tag Assignment Request")
             .setMessage("Ready to start tag assignment for Document #$docNum?\nSelected Products: ${products.size}")
             .setPositiveButton("Start Assignment") { _, _ ->

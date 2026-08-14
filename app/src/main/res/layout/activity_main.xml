@@ -48,38 +48,18 @@
                 android:contentDescription="Settings"
                 android:src="@android:drawable/ic_menu_preferences"
                 app:layout_constraintBottom_toBottomOf="parent"
-                app:layout_constraintEnd_toStartOf="@id/statusRow"
+                app:layout_constraintEnd_toStartOf="@id/connectionPill"
                 app:layout_constraintTop_toTopOf="parent"
                 app:tint="@color/text_primary" />
 
-            <!-- Status light + label -->
-            <LinearLayout
-                android:id="@+id/statusRow"
+            <!-- Connection status pill -->
+            <com.mitas.ppnam.station1.ConnectionPillView
+                android:id="@+id/connectionPill"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:gravity="center_vertical"
-                android:orientation="horizontal"
                 app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintEnd_toEndOf="parent"
-                app:layout_constraintTop_toTopOf="parent">
-
-                <ImageView
-                    android:id="@+id/imgStatusDot"
-                    android:layout_width="12dp"
-                    android:layout_height="12dp"
-                    android:contentDescription="Status indicator"
-                    android:src="@drawable/status_dot_red" />
-
-                <TextView
-                    android:id="@+id/tvStatus"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="10dp"
-                    android:text="@string/status_offline"
-                    android:textColor="@color/text_primary"
-                    android:textSize="14sp"
-                    android:textStyle="bold" />
-            </LinearLayout>
+                app:layout_constraintTop_toTopOf="parent" />
 
         </androidx.constraintlayout.widget.ConstraintLayout>
     </com.google.android.material.card.MaterialCardView>

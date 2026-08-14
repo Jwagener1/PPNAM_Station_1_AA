@@ -22,6 +22,10 @@ class UnassignActivity : AppCompatActivity() {
     private var scannerInt = 1
     private var stationInt = 1
 
+    private val connectionStatusListener: (ConnectionStatus) -> Unit = { status ->
+        runOnUiThread { binding.connectionPill.setStatus(status) }
+    }
+
     private val rfidReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             if (intent?.action == "com.rscja.scanner.action.scanner.RFID") {
@@ -38,10 +42,12 @@ class UnassignActivity : AppCompatActivity() {
         binding = ActivityUnassignBinding.inflate(layoutInflater)
         enableEdgeToEdge()
         setContentView(binding.root)
+        forceLightStatusBarIcons()
 
         loadSettings()
         setupToolbar()
         subscribeToResults()
+        MqttManager.getInstance(this).addConnectionStatusListener(connectionStatusListener)
 
         ViewCompat.setOnApplyWindowInsetsListener(binding.main) { v, insets ->
             val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
@@ -141,6 +147,8 @@ class UnassignActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
-        MqttManager.getInstance(this).unsubscribe("PPNAM/station_$stationInt/unassign_result")
+        val mqtt = MqttManager.getInstance(this)
+        mqtt.removeConnectionStatusListener(connectionStatusListener)
+        mqtt.unsubscribe("PPNAM/station_$stationInt/unassign_result")
     }
 }

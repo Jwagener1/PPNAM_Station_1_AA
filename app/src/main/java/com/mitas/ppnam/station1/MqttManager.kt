@@ -24,7 +24,15 @@ class MqttManager private constructor(context: Context) {
     
     private val connectionListeners = CopyOnWriteArrayList<(Boolean) -> Unit>()
     private val stationStatusListeners = CopyOnWriteArrayList<(Boolean) -> Unit>()
-    
+    private val connectionStatusListeners = CopyOnWriteArrayList<(ConnectionStatus) -> Unit>()
+    private val statusHandler = android.os.Handler(android.os.Looper.getMainLooper())
+    private val statusRunnable = Runnable {
+        val status = resolveStatus()
+        connectionStatusListeners.forEach { it(status) }
+    }
+    /** What the caller wants right now — distinguishes "mid auto-retry" from "user disconnected". */
+    private val wantsConnection = AtomicBoolean(true)
+
     private val subscriptions = ConcurrentHashMap<String, CopyOnWriteArrayList<(Mqtt3Publish) -> Unit>>()
 
     var isStationOnline = true
@@ -80,14 +88,43 @@ class MqttManager private constructor(context: Context) {
         stationStatusListeners.remove(listener)
     }
 
+    /**
+     * Resolves what to tell the operator about connectivity, in precedence order,
+     * mirroring Station 2's resolveConnectionStatus (minus clock skew, which Station 1
+     * has no way to measure).
+     */
+    private fun resolveStatus(): ConnectionStatus = when {
+        !wantsConnection.get() -> ConnectionStatus.OFFLINE
+        isConnected() && !isStationOnline -> ConnectionStatus.STATION_OFFLINE
+        isConnected() && isStationOnline -> ConnectionStatus.CONNECTED
+        else -> ConnectionStatus.RECONNECTING
+    }
+
+    /** Debounced like Station 2's connectionStatusFlow, so one stale sample doesn't flash the pill. */
+    private fun notifyConnectionStatus() {
+        statusHandler.removeCallbacks(statusRunnable)
+        statusHandler.postDelayed(statusRunnable, 1_500)
+    }
+
+    fun addConnectionStatusListener(listener: (ConnectionStatus) -> Unit) {
+        connectionStatusListeners.add(listener)
+        listener(resolveStatus())
+    }
+
+    fun removeConnectionStatusListener(listener: (ConnectionStatus) -> Unit) {
+        connectionStatusListeners.remove(listener)
+    }
+
     fun connect(force: Boolean = false) {
         if (!force && (isConnected() || isConnecting.get())) return
-        
+
         if (force) {
             disconnect { connect(force = false) }
             return
         }
 
+        wantsConnection.set(true)
+        notifyConnectionStatus()
         isConnecting.set(true)
 
         val prefs = appContext.getSharedPreferences("settings", Context.MODE_PRIVATE)
@@ -187,10 +224,12 @@ class MqttManager private constructor(context: Context) {
 
     private fun notifyListeners(connected: Boolean) {
         connectionListeners.forEach { it(connected) }
+        notifyConnectionStatus()
     }
 
     private fun notifyStationListeners(online: Boolean) {
         stationStatusListeners.forEach { it(online) }
+        notifyConnectionStatus()
     }
 
     private fun matches(topic: String, filter: String): Boolean {
@@ -272,6 +311,8 @@ class MqttManager private constructor(context: Context) {
     }
 
     fun disconnect(onComplete: () -> Unit = {}) {
+        wantsConnection.set(false)
+        notifyConnectionStatus()
         if (!isConnected()) {
             onComplete()
             return

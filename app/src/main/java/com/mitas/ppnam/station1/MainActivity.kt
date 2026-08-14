@@ -6,7 +6,6 @@ import android.os.Bundle
 import android.view.WindowManager
 import android.widget.Toast
 import androidx.activity.enableEdgeToEdge
-import androidx.annotation.StringRes
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
@@ -17,16 +16,10 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
     private var scannerInt = 1
-    
-    enum class ConnectionStatus(@get:StringRes val stringResId: Int, val dotDrawableResId: Int) {
-        ONLINE(R.string.status_online, R.drawable.status_dot_green),
-        OFFLINE(R.string.status_offline, R.drawable.status_dot_red),
-        CONNECTING(R.string.status_connecting, R.drawable.status_dot_amber)
-    }
 
-    private val connectionListener: (Boolean) -> Unit = { connected ->
+    private val connectionStatusListener: (ConnectionStatus) -> Unit = { status ->
         runOnUiThread {
-            updateStatusUI(if (connected) ConnectionStatus.ONLINE else ConnectionStatus.OFFLINE)
+            binding.connectionPill.setStatus(status)
         }
     }
 
@@ -53,6 +46,7 @@ class MainActivity : AppCompatActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         enableEdgeToEdge()
         setContentView(binding.root)
+        forceLightStatusBarIcons()
 
         window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_HIDDEN)
 
@@ -63,9 +57,8 @@ class MainActivity : AppCompatActivity() {
         }
 
         setupDashboard()
-        updateStatusUI(ConnectionStatus.CONNECTING)
-        
-        MqttManager.getInstance(this).addConnectionListener(connectionListener)
+
+        MqttManager.getInstance(this).addConnectionStatusListener(connectionStatusListener)
         MqttManager.getInstance(this).addStationStatusListener(stationStatusListener)
     }
 
@@ -102,29 +95,8 @@ class MainActivity : AppCompatActivity() {
         }
 
         binding.btnSettings.setOnClickListener {
-            showPasswordDialog()
+            startActivity(Intent(this, SettingsActivity::class.java))
         }
-    }
-
-    private fun showPasswordDialog() {
-        val input = android.widget.EditText(this)
-        input.inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
-        input.setPadding(50, 20, 50, 20)
-
-        androidx.appcompat.app.AlertDialog.Builder(this)
-            .setTitle("Settings Access")
-            .setMessage("Please enter password to access settings:")
-            .setView(input)
-            .setPositiveButton("Access") { _, _ ->
-                val password = input.text.toString()
-                if (password == "Mit@s_") {
-                    startActivity(Intent(this, SettingsActivity::class.java))
-                } else {
-                    android.widget.Toast.makeText(this, "Incorrect password", android.widget.Toast.LENGTH_SHORT).show()
-                }
-            }
-            .setNegativeButton("Cancel", null)
-            .show()
     }
 
     private fun updateTileStates() {
@@ -151,14 +123,9 @@ class MainActivity : AppCompatActivity() {
         view.isFocusable = enabled
     }
 
-    private fun updateStatusUI(status: ConnectionStatus) {
-        binding.tvStatus.setText(status.stringResId)
-        binding.imgStatusDot.setImageResource(status.dotDrawableResId)
-    }
-
     override fun onDestroy() {
         super.onDestroy()
-        MqttManager.getInstance(this).removeConnectionListener(connectionListener)
+        MqttManager.getInstance(this).removeConnectionStatusListener(connectionStatusListener)
         MqttManager.getInstance(this).removeStationStatusListener(stationStatusListener)
     }
 }

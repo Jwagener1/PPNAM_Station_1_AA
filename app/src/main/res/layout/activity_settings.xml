@@ -19,7 +19,7 @@
             android:layout_height="?attr/actionBarSize"
             android:background="@color/card_background"
             app:title="Settings"
-            app:titleTextColor="@color/text_primary">
+            app:titleTextAppearance="@style/TextAppearance.SysOneScanner.ToolbarTitle">
 
             <com.mitas.ppnam.station1.ConnectionPillView
                 android:id="@+id/connectionPill"

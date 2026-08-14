@@ -9,6 +9,7 @@ import android.view.MenuItem
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
+import androidx.activity.addCallback
 import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
@@ -51,12 +52,16 @@ class ProductRequestActivity : AppCompatActivity() {
 
         binding.btnFetchProducts.setOnClickListener { fetchProducts() }
         binding.btnSubmitRequest.setOnClickListener { submitSelectedProducts() }
+        binding.btnFetchProducts.applyPressScaleFeedback()
+        binding.btnSubmitRequest.applyPressScaleFeedback()
 
         ViewCompat.setOnApplyWindowInsetsListener(binding.main) { v, insets ->
             val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
             insets
         }
+
+        onBackPressedDispatcher.addCallback(this) { finishBackward() }
 
         val incomingDocNum = intent.getStringExtra("doc_number")
         val incomingDocType = intent.getStringExtra("doc_type")
@@ -133,7 +138,7 @@ class ProductRequestActivity : AppCompatActivity() {
                         putExtra("doc_number", docNum)
                         putExtra("doc_type", docType)
                     }
-                    startActivity(intent)
+                    startActivityForward(intent)
                     finish()
                 } else {
                     AlertDialog.Builder(this, R.style.AppAlertDialogTheme)
@@ -299,7 +304,7 @@ class ProductRequestActivity : AppCompatActivity() {
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         if (item.itemId == android.R.id.home) {
-            finish()
+            finishBackward()
             return true
         }
         return super.onOptionsItemSelected(item)

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Forward navigation, exiting screen: eases out to the left as the new screen
+     arrives - the same path in reverse is used to return (slide_in_left/
+     slide_out_right), per "enter and exit along the same path". -->
+<set xmlns:android="http://schemas.android.com/apk/res/android"
+    android:interpolator="@android:anim/accelerate_interpolator">
+    <translate
+        android:duration="220"
+        android:fromXDelta="0%"
+        android:toXDelta="-15%" />
+    <alpha
+        android:duration="220"
+        android:fromAlpha="1.0"
+        android:toAlpha="0.0" />
+</set>

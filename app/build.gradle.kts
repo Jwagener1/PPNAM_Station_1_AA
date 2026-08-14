@@ -85,6 +85,7 @@ dependencies {
     implementation(libs.material)
     implementation(libs.androidx.activity)
     implementation(libs.androidx.constraintlayout)
+    implementation(libs.androidx.dynamicanimation)
     implementation(libs.hivemq.mqtt.client)
     implementation(libs.netty.codec.http)
 

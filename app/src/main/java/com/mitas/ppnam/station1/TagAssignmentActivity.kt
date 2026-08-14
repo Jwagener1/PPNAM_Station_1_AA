@@ -9,6 +9,7 @@ import android.os.Bundle
 import android.view.MenuItem
 import android.widget.ArrayAdapter
 import android.widget.Toast
+import androidx.activity.addCallback
 import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
@@ -62,6 +63,8 @@ class TagAssignmentActivity : AppCompatActivity() {
             insets
         }
 
+        onBackPressedDispatcher.addCallback(this) { finishBackward() }
+
         binding.btnSubmit.setOnClickListener {
             val rfid = binding.etRfid.text.toString()
             val product = binding.spinnerProduct.text.toString()
@@ -81,6 +84,9 @@ class TagAssignmentActivity : AppCompatActivity() {
         binding.btnAllAssigned.setOnClickListener {
             showConfirmationDialog()
         }
+
+        binding.btnSubmit.applyPressScaleFeedback()
+        binding.btnAllAssigned.applyPressScaleFeedback()
     }
 
     private fun loadSettings() {
@@ -341,7 +347,7 @@ class TagAssignmentActivity : AppCompatActivity() {
             putExtra("doc_number", docNum)
             putExtra("doc_type", docType)
         }
-        startActivity(intent)
+        startActivityForward(intent)
         finish()
     }
 
@@ -373,7 +379,7 @@ class TagAssignmentActivity : AppCompatActivity() {
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         if (item.itemId == android.R.id.home) {
-            finish()
+            finishBackward()
             return true
         }
         return super.onOptionsItemSelected(item)

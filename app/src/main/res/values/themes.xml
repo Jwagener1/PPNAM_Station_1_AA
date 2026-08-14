@@ -40,4 +40,12 @@
         <item name="android:textColorSecondary">@color/text_muted</item>
         <item name="colorAccent">@color/primary_action</item>
     </style>
+
+    <!-- Optical sizing: large text wants slightly negative tracking (letters read too
+         far apart as they grow) - tightened here rather than left at the Material
+         default, which is tuned for body-size text, not a 20sp+ toolbar title. -->
+    <style name="TextAppearance.SysOneScanner.ToolbarTitle" parent="TextAppearance.Material3.TitleLarge">
+        <item name="android:letterSpacing">-0.015</item>
+        <item name="android:textColor">@color/text_primary</item>
+    </style>
 </resources>

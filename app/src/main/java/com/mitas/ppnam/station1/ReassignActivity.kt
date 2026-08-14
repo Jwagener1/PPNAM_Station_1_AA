@@ -8,6 +8,7 @@ import android.os.Build
 import android.os.Bundle
 import android.view.MenuItem
 import android.widget.Toast
+import androidx.activity.addCallback
 import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
@@ -66,9 +67,12 @@ class ReassignActivity : AppCompatActivity() {
             insets
         }
 
+        onBackPressedDispatcher.addCallback(this) { finishBackward() }
+
         binding.btnSubmit.setOnClickListener {
             validateAndSubmit()
         }
+        binding.btnSubmit.applyPressScaleFeedback()
     }
 
     private fun loadSettings() {
@@ -170,7 +174,7 @@ class ReassignActivity : AppCompatActivity() {
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         if (item.itemId == android.R.id.home) {
-            finish()
+            finishBackward()
             return true
         }
         return super.onOptionsItemSelected(item)

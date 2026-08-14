@@ -117,7 +117,8 @@
                         android:textAlignment="center"
                         android:textColor="@color/text_primary"
                         android:textSize="18sp"
-                        android:textStyle="bold" />
+                        android:textStyle="bold"
+                        android:letterSpacing="-0.01" />
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
@@ -156,7 +157,8 @@
                         android:textAlignment="center"
                         android:textColor="@color/text_primary"
                         android:textSize="18sp"
-                        android:textStyle="bold" />
+                        android:textStyle="bold"
+                        android:letterSpacing="-0.01" />
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
@@ -195,7 +197,8 @@
                         android:textAlignment="center"
                         android:textColor="@color/text_primary"
                         android:textSize="18sp"
-                        android:textStyle="bold" />
+                        android:textStyle="bold"
+                        android:letterSpacing="-0.01" />
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
@@ -234,7 +237,8 @@
                         android:textAlignment="center"
                         android:textColor="@color/text_primary"
                         android:textSize="18sp"
-                        android:textStyle="bold" />
+                        android:textStyle="bold"
+                        android:letterSpacing="-0.01" />
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 

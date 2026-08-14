@@ -74,7 +74,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun setupDashboard() {
         binding.tileSapLookup.setOnClickListener {
-            startActivity(Intent(this, ManualSapEntryActivity::class.java))
+            startActivityForward(Intent(this, ManualSapEntryActivity::class.java))
         }
 
         binding.tileProductRequest.setOnClickListener {
@@ -83,20 +83,25 @@ class MainActivity : AppCompatActivity() {
                 putExtra("doc_number", sapPrefs.getString("last_doc_number", ""))
                 putExtra("doc_type", sapPrefs.getString("last_doc_type", ""))
             }
-            startActivity(intent)
+            startActivityForward(intent)
         }
 
         binding.tileTagAssignment.setOnClickListener {
-            startActivity(Intent(this, TagAssignmentActivity::class.java))
+            startActivityForward(Intent(this, TagAssignmentActivity::class.java))
         }
 
         binding.tileOffload.setOnClickListener {
-            startActivity(Intent(this, AssignmentActivity::class.java))
+            startActivityForward(Intent(this, AssignmentActivity::class.java))
         }
 
         binding.btnSettings.setOnClickListener {
-            startActivity(Intent(this, SettingsActivity::class.java))
+            startActivityForward(Intent(this, SettingsActivity::class.java))
         }
+
+        binding.tileSapLookup.applyPressScaleFeedback()
+        binding.tileProductRequest.applyPressScaleFeedback()
+        binding.tileTagAssignment.applyPressScaleFeedback()
+        binding.tileOffload.applyPressScaleFeedback()
     }
 
     private fun updateTileStates() {

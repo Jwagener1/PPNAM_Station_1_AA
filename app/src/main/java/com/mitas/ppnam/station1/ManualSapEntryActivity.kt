@@ -7,6 +7,7 @@ import android.view.MenuItem
 import android.view.View
 import android.widget.ArrayAdapter
 import android.widget.Toast
+import androidx.activity.addCallback
 import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
@@ -42,12 +43,15 @@ class ManualSapEntryActivity : AppCompatActivity() {
         MqttManager.getInstance(this).addConnectionStatusListener(connectionStatusListener)
 
         binding.btnSubmit.setOnClickListener { validateAndSubmit() }
+        binding.btnSubmit.applyPressScaleFeedback()
 
         ViewCompat.setOnApplyWindowInsetsListener(binding.main) { v, insets ->
             val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
             insets
         }
+
+        onBackPressedDispatcher.addCallback(this) { finishBackward() }
     }
 
     private fun loadSettings() {
@@ -108,7 +112,7 @@ class ManualSapEntryActivity : AppCompatActivity() {
                         putExtra("doc_number", docNum)
                         putExtra("doc_type", docType)
                     }
-                    startActivity(intent)
+                    startActivityForward(intent)
                     finish()
                 } else {
                     binding.cardResult.setStrokeColor(ContextCompat.getColorStateList(this, R.color.danger))
@@ -160,7 +164,7 @@ class ManualSapEntryActivity : AppCompatActivity() {
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         if (item.itemId == android.R.id.home) {
-            finish()
+            finishBackward()
             return true
         }
         return super.onOptionsItemSelected(item)

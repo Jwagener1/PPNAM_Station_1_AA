@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Forward navigation, entering screen: slides in from the right, decelerating to
+     a stop (no overshoot) - the classic-View-system equivalent of a critically
+     damped spring settle. -->
+<set xmlns:android="http://schemas.android.com/apk/res/android"
+    android:interpolator="@android:anim/decelerate_interpolator">
+    <translate
+        android:duration="220"
+        android:fromXDelta="35%"
+        android:toXDelta="0%" />
+    <alpha
+        android:duration="220"
+        android:fromAlpha="0.0"
+        android:toAlpha="1.0" />
+</set>

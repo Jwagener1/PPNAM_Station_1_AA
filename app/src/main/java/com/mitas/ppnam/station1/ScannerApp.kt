@@ -145,7 +145,7 @@ class ScannerApp : Application() {
                     putExtra("doc_type", docType)
                     flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
                 }
-                activity.startActivity(intent)
+                activity.startActivityForward(intent)
             }
             .setNegativeButton("Cancel") { _, _ ->
                 userRejectedDoc = docNum // Mark as rejected for this specific doc
@@ -262,7 +262,7 @@ class ScannerApp : Application() {
                     putExtra("doc_type", docType)
                     flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
                 }
-                activity.startActivity(intent)
+                activity.startActivityForward(intent)
             }
             .setNegativeButton("Cancel") { _, _ ->
                 userRejectedDoc = docNum

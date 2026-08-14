@@ -10,6 +10,7 @@ import android.view.MenuItem
 import android.view.View
 import android.widget.ArrayAdapter
 import android.widget.Toast
+import androidx.activity.addCallback
 import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
@@ -73,8 +74,12 @@ class AssignmentActivity : AppCompatActivity() {
             insets
         }
 
+        onBackPressedDispatcher.addCallback(this) { finishBackward() }
+
         binding.btnSubmit.setOnClickListener { validateAndSubmit() }
         binding.btnAllOffloaded.setOnClickListener { showAllOffloadedDialog() }
+        binding.btnSubmit.applyPressScaleFeedback()
+        binding.btnAllOffloaded.applyPressScaleFeedback()
     }
 
     private fun loadSettings() {
@@ -183,7 +188,7 @@ class AssignmentActivity : AppCompatActivity() {
                     AlertDialog.Builder(this, R.style.AppAlertDialogTheme)
                         .setTitle("Session Complete")
                         .setMessage("$message\n\nFinalized: $finalizedCount\nIncomplete: $incompleteCount")
-                        .setPositiveButton("Done") { _, _ -> finish() }
+                        .setPositiveButton("Done") { _, _ -> finishBackward() }
                         .setCancelable(false)
                         .show()
                 } else {
@@ -313,7 +318,7 @@ class AssignmentActivity : AppCompatActivity() {
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         if (item.itemId == android.R.id.home) {
-            finish()
+            finishBackward()
             return true
         }
         return super.onOptionsItemSelected(item)

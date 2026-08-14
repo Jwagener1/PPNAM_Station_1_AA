@@ -6,6 +6,7 @@ import android.os.Bundle
 import android.view.MenuItem
 import android.view.View
 import android.view.inputmethod.EditorInfo
+import androidx.activity.addCallback
 import androidx.appcompat.app.AppCompatActivity
 import com.mitas.ppnam.station1.databinding.ActivitySettingsBinding
 
@@ -87,12 +88,19 @@ class SettingsActivity : AppCompatActivity() {
         }
 
         binding.btnUnassignMode.setOnClickListener {
-            startActivity(Intent(this, UnassignActivity::class.java))
+            startActivityForward(Intent(this, UnassignActivity::class.java))
         }
 
         binding.btnReassignMode.setOnClickListener {
-            startActivity(Intent(this, ReassignActivity::class.java))
+            startActivityForward(Intent(this, ReassignActivity::class.java))
         }
+
+        binding.btnUnlock.applyPressScaleFeedback()
+        binding.btnSaveSettings.applyPressScaleFeedback()
+        binding.btnUnassignMode.applyPressScaleFeedback()
+        binding.btnReassignMode.applyPressScaleFeedback()
+
+        onBackPressedDispatcher.addCallback(this) { finishBackward() }
     }
 
     private fun setupToolbar() {
@@ -147,7 +155,7 @@ class SettingsActivity : AppCompatActivity() {
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         if (item.itemId == android.R.id.home) {
-            finish()
+            finishBackward()
             return true
         }
         return super.onOptionsItemSelected(item)

@@ -246,7 +246,7 @@
         android:id="@+id/layoutStationOffline"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:background="#E60B1220"
+        android:background="#E607101A"
         android:clickable="true"
         android:focusable="true"
         android:elevation="10dp"

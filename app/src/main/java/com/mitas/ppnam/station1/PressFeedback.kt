@@ -45,3 +45,33 @@ fun View.applyPressScaleFeedback(pressedScale: Float = 0.96f) {
         v.onTouchEvent(event)
     }
 }
+
+/**
+ * A one-shot attention pulse (scale up, spring back to rest) - used to nudge the
+ * operator toward a button the instant it becomes actionable (e.g. a form just
+ * became valid), rather than relying on a state color change alone to be noticed.
+ * No-ops under reduced motion, same as [applyPressScaleFeedback].
+ */
+fun View.flashAttention(peakScale: Float = 1.08f) {
+    if (!ValueAnimator.areAnimatorsEnabled()) return
+
+    fun pulse(property: FloatPropertyCompat<View>) {
+        SpringAnimation(this, property, peakScale).apply {
+            spring = SpringForce(peakScale).apply {
+                dampingRatio = SpringForce.DAMPING_RATIO_MEDIUM_BOUNCY
+                stiffness = SpringForce.STIFFNESS_MEDIUM
+            }
+            addEndListener { _, _, _, _ ->
+                SpringAnimation(this@flashAttention, property, 1f).apply {
+                    spring = SpringForce(1f).apply {
+                        dampingRatio = SpringForce.DAMPING_RATIO_NO_BOUNCY
+                        stiffness = SpringForce.STIFFNESS_HIGH
+                    }
+                }.start()
+            }
+        }.start()
+    }
+
+    pulse(DynamicAnimation.SCALE_X)
+    pulse(DynamicAnimation.SCALE_Y)
+}

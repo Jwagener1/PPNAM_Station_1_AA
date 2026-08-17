@@ -31,6 +31,8 @@ While running, type commands at the prompt:
                         all_offloaded, unassign, reassign
     offline            - simulate the station going offline (retained status=offline)
     online             - simulate the station coming back online
+    offloadstart [scanner_id] [reason] - broadcast offload_start addressed at a scanner
+                        (default scanner_id, reason "ManualStart"; try "OutOfSync" too)
     state              - print current session state
     quit               - exit
 """
@@ -125,6 +127,7 @@ class StationSimulator:
             "assignment_v2": self.handle_assignment_or_all_assigned,
             "print_all": self.handle_print_all,
             "offload": self.handle_offload,
+            "offload_v2": self.handle_offload,
             "all_offloaded": self.handle_all_offloaded,
             "unassign": self.handle_unassign,
             "reassign": self.handle_reassign,
@@ -500,6 +503,46 @@ class StationSimulator:
         })
 
     # -- manual triggers ------------------------------------------------------
+    def go_offload_start(self, target_scanner_int: int, sync_reason: str = "ManualStart"):
+        """Simulate the station inviting a specific scanner straight into Offloading."""
+        session = next(iter(self.sessions_by_id.values()), None)
+        pallet_states = []
+        if session is not None:
+            pallet_states = [{
+                "palletRowId": self.next_pallet_row_id,
+                "palletCode": f"PALLET-{i + 1:03d}",
+                "actualPalletSequence": i + 1,
+                "tagId": f"E28011700000000{i + 1:03d}AAAAAA",
+                "barcode": f"BC{1000 + i}",
+                "productCode": FAKE_PRODUCTS[i % len(FAKE_PRODUCTS)]["productCode"],
+                "batchRef": "",
+                "bagCount": FAKE_PRODUCTS[i % len(FAKE_PRODUCTS)].get("bagCount", 1),
+                "bagSize": FAKE_PRODUCTS[i % len(FAKE_PRODUCTS)].get("bagSize", ""),
+                "palletWeight": None,
+                "assignmentStatus": "Assigned",
+                "pairStatus": "Pending",
+                "printStatus": "NotPrinted",
+                "sapPostStatus": "NotStarted",
+                "readyForOffload": True,
+                "offloaded": False,
+            } for i in range(max(session.assigned_count, 1))]
+
+        self.publish_broadcast("offload_start", {
+            "ts": now_iso(),
+            "status": "Ready",
+            "targetReaderDeviceId": f"scanner_{target_scanner_int}",
+            "sessionId": session.session_id if session else None,
+            "sourceDocumentType": session.doc_type if session else "",
+            "sourceDocumentNumber": session.doc_number if session else "",
+            "syncReason": sync_reason,
+            "totalPalletCount": len(pallet_states),
+            "readyToOffloadCount": len(pallet_states),
+            "offloadedCount": session.offloaded_count if session else 0,
+            "pendingCount": len(pallet_states) - (session.offloaded_count if session else 0),
+            "palletStates": pallet_states,
+            "message": f"Offload start requested ({sync_reason})",
+        })
+
     def go_offline(self):
         self.client.publish(f"{self.station_topic}/status", "offline", qos=1, retain=True)
 
@@ -536,6 +579,11 @@ def main():
                 sim.go_online()
             elif line == "state":
                 sim.print_state()
+            elif line.startswith("offloadstart"):
+                bits = line.split(" ")
+                target = int(bits[1]) if len(bits) > 1 else args.scanner_id
+                reason = bits[2] if len(bits) > 2 else "ManualStart"
+                sim.go_offload_start(target, reason)
             elif line.startswith("fail "):
                 kind = line.split(" ", 1)[1].strip()
                 sim.force_fail.add(kind)

@@ -31,6 +31,10 @@ class ProductRequestActivity : AppCompatActivity() {
     private var stationInt = 1
     private val productAdapter = ProductAdapter()
     private var submittedProductList: ArrayList<String>? = null
+    /** Bag composition for every product SAP returned, keyed by productCode - not yet scoped to what's selected. */
+    private var allProductMeta: JSONObject = JSONObject()
+    /** Scoped to only the products the operator actually selected - see submitSelectedProducts(). */
+    private var productMetaJson: String = ""
 
     private val connectionStatusListener: (ConnectionStatus) -> Unit = { status ->
         runOnUiThread { binding.connectionPill.setStatus(status) }
@@ -137,6 +141,7 @@ class ProductRequestActivity : AppCompatActivity() {
                         putStringArrayListExtra("selected_products", submittedProductList)
                         putExtra("doc_number", docNum)
                         putExtra("doc_type", docType)
+                        putExtra("product_meta_json", productMetaJson)
                     }
                     startActivityForward(intent)
                     finish()
@@ -230,13 +235,27 @@ class ProductRequestActivity : AppCompatActivity() {
 
             val productsArray = json.optJSONArray("products") ?: JSONArray()
             val productList = mutableListOf<ProductItem>()
+            val metaJson = JSONObject()
 
             for (i in 0 until productsArray.length()) {
                 val p = productsArray.getJSONObject(i)
-                productList.add(ProductItem(
-                    p.getString("productCode"),
-                    p.getString("productDescription")
-                ))
+                val code = p.getString("productCode")
+                productList.add(ProductItem(code, p.getString("productDescription")))
+
+                // Per-product bag composition, used by Tag Assignment/Offloading to
+                // auto-fill bag size/count instead of the operator re-keying SAP data.
+                val bagSize = p.optString("bagSize", "")
+                val bagCount = if (p.has("bagCount")) p.optInt("bagCount") else p.optInt("bagsPerPallet", 0)
+                if (bagSize.isNotEmpty() || bagCount > 0) {
+                    metaJson.put(code, JSONObject().apply {
+                        put("bagSize", bagSize)
+                        put("bagCount", bagCount)
+                    })
+                }
+            }
+
+            if (metaJson.length() > 0) {
+                allProductMeta = metaJson
             }
 
             runOnUiThread {
@@ -267,6 +286,17 @@ class ProductRequestActivity : AppCompatActivity() {
         val docType = intent.getStringExtra("doc_type") ?: ""
 
         submittedProductList = ArrayList(selectedItems.map { "${it.code} - ${it.description}" })
+
+        val scopedMeta = JSONObject()
+        selectedItems.forEach { item ->
+            allProductMeta.optJSONObject(item.code)?.let { scopedMeta.put(item.code, it) }
+        }
+        if (scopedMeta.length() > 0) {
+            productMetaJson = scopedMeta.toString()
+            getSharedPreferences("sap_data", Context.MODE_PRIVATE).edit()
+                .putString("product_meta_json", productMetaJson)
+                .apply()
+        }
 
         val payload = JSONObject().apply {
             put("ts", Instant.now().toString())

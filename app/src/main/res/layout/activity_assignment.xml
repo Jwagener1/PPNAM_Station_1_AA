@@ -94,6 +94,25 @@
                     android:textColor="@color/text_primary_dark" />
             </com.google.android.material.textfield.TextInputLayout>
 
+            <!-- Bag Count -->
+            <com.google.android.material.textfield.TextInputLayout
+                android:id="@+id/tilBagCount"
+                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:hint="Bag Count"
+                app:boxStrokeColor="@color/outline_dark"
+                app:hintTextColor="@color/text_secondary_dark">
+
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/etBagCount"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:inputType="number"
+                    android:textColor="@color/text_primary_dark" />
+            </com.google.android.material.textfield.TextInputLayout>
+
             <!-- Batch Reference Section -->
             <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"

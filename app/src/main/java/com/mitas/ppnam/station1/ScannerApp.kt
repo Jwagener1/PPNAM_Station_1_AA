@@ -75,6 +75,7 @@ class ScannerApp : Application() {
 
         setupSapProductRequestListener()
         setupTagAssignmentRequestListener()
+        setupOffloadStartListener()
     }
 
     private fun setupSapProductRequestListener() {
@@ -265,6 +266,107 @@ class ScannerApp : Application() {
                 activity.startActivityForward(intent)
             }
             .setNegativeButton("Cancel") { _, _ ->
+                userRejectedDoc = docNum
+            }
+            .show()
+    }
+
+    /**
+     * The station can proactively invite this scanner straight into Offloading -
+     * skipping SAP Lookup/Product Request/Tag Assignment entirely - either because an
+     * operator started offloading from the Windows UI, or because this scanner sent a
+     * stale/out-of-sync offload request and the station is pushing a resync snapshot.
+     * Broadcast on the station's res/# topic but addressed to one scanner via
+     * targetReaderDeviceId/deviceId, so every scanner must filter on that field.
+     */
+    private fun setupOffloadStartListener() {
+        val mqtt = MqttManager.getInstance(this)
+        val requestTopic = "PPNAM/+/res/offload_start"
+
+        mqtt.subscribe(requestTopic) { publish ->
+            val topic = publish.topic.toString()
+            val prefs = getSharedPreferences("settings", Context.MODE_PRIVATE)
+            val stationInt = prefs.getInt("station_int", 1)
+            val scannerInt = prefs.getInt("scanner_int", 1)
+
+            if (topic != "PPNAM/station_$stationInt/res/offload_start") return@subscribe
+
+            val payload = String(publish.payloadAsBytes)
+            Log.d("ScannerApp", "Received Offload Start: $payload")
+
+            try {
+                val json = JSONObject(payload)
+                val targetDeviceId = json.optString("targetReaderDeviceId", json.optString("deviceId", ""))
+                if (targetDeviceId != "scanner_$scannerInt") return@subscribe
+
+                val ts = json.optString("ts", "")
+                val sessionId = json.optString("sessionId", "")
+                val docNum = json.optString("sourceDocumentNumber", "")
+                val docType = json.optString("sourceDocumentType", "")
+                val syncReason = json.optString("syncReason", "")
+                val pendingCount = json.optInt("pendingCount", 0)
+                val totalPalletCount = json.optInt("totalPalletCount", 0)
+                val palletStates = json.optJSONArray("palletStates")
+
+                if (docNum == userRejectedDoc) return@subscribe
+                if (currentActivity !is MainActivity) {
+                    Log.d("ScannerApp", "Ignoring offload_start - not on home screen (current: ${currentActivity?.javaClass?.simpleName})")
+                    return@subscribe
+                }
+                if (docNum == lastDocNumber && ts == lastTimestamp) return@subscribe
+
+                lastDocNumber = docNum
+                lastTimestamp = ts
+
+                currentActivity?.runOnUiThread {
+                    showOffloadStartDialog(sessionId, docNum, docType, syncReason, pendingCount, totalPalletCount, palletStates?.toString() ?: "")
+                }
+            } catch (e: Exception) {
+                Log.e("ScannerApp", "Error parsing Offload Start JSON", e)
+            }
+        }
+    }
+
+    private fun showOffloadStartDialog(
+        sessionId: String,
+        docNum: String,
+        docType: String,
+        syncReason: String,
+        pendingCount: Int,
+        totalPalletCount: Int,
+        palletStatesJson: String,
+    ) {
+        val activity = currentActivity ?: return
+
+        activeDialog?.dismiss()
+
+        val reasonSuffix = if (syncReason.isNotEmpty()) " ($syncReason)" else ""
+        val countLine = if (totalPalletCount > 0) "\nPallets: $pendingCount pending of $totalPalletCount total." else ""
+        val message = "Ready to start offloading for Document #$docNum$reasonSuffix?$countLine"
+
+        activeDialog = AlertDialog.Builder(activity, R.style.AppAlertDialogTheme)
+            .setTitle("Offload Start Request")
+            .setMessage(message)
+            .setPositiveButton("START") { _, _ ->
+                userRejectedDoc = null
+                val sapPrefs = getSharedPreferences("sap_data", Context.MODE_PRIVATE)
+                sapPrefs.edit()
+                    .putString("session_id", sessionId)
+                    .putString("last_doc_number", docNum)
+                    .putString("last_doc_type", docType)
+                    .putInt("current_step", 3) // Step 3: Assignment complete, enable Offloading
+                    .putString("pallet_states_json", palletStatesJson)
+                    .apply()
+
+                val intent = Intent(activity, AssignmentActivity::class.java).apply {
+                    putExtra("doc_number", docNum)
+                    putExtra("doc_type", docType)
+                    putExtra("pallet_states_json", palletStatesJson)
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                }
+                activity.startActivityForward(intent)
+            }
+            .setNegativeButton("CANCEL") { _, _ ->
                 userRejectedDoc = docNum
             }
             .show()

@@ -6,7 +6,10 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.os.Build
 import android.os.Bundle
+import android.text.Editable
+import android.text.TextWatcher
 import android.view.MenuItem
+import android.widget.AdapterView
 import android.widget.ArrayAdapter
 import android.widget.Toast
 import androidx.activity.addCallback
@@ -15,6 +18,7 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import com.google.android.material.textfield.TextInputLayout
 import com.mitas.ppnam.station1.databinding.ActivityTagAssignmentBinding
 import org.json.JSONObject
 import java.nio.charset.StandardCharsets
@@ -27,6 +31,8 @@ class TagAssignmentActivity : AppCompatActivity() {
     private var stationInt = 1
     private var selectedProducts: List<String> = emptyList()
     private var palletSequence: Int = 1
+    /** productCode -> (bagSize, bagCount), from the SAP product response (see ProductRequestActivity). */
+    private var productMeta: Map<String, Pair<String, Int>> = emptyMap()
 
     private val connectionStatusListener: (ConnectionStatus) -> Unit = { status ->
         runOnUiThread { binding.connectionPill.setStatus(status) }
@@ -52,8 +58,10 @@ class TagAssignmentActivity : AppCompatActivity() {
 
         loadSettings()
         setupToolbar()
+        loadProductMeta()
         setupProductSpinner()
-        
+        setupBagFieldWatchers()
+
         subscribeToResults()
         MqttManager.getInstance(this).addConnectionStatusListener(connectionStatusListener)
 
@@ -66,19 +74,25 @@ class TagAssignmentActivity : AppCompatActivity() {
         onBackPressedDispatcher.addCallback(this) { finishBackward() }
 
         binding.btnSubmit.setOnClickListener {
-            val rfid = binding.etRfid.text.toString()
+            val rfid = binding.etRfid.text.toString().trim()
             val product = binding.spinnerProduct.text.toString()
+            val bagSize = binding.etBagSize.text.toString().trim()
+            val bagCount = binding.etBagCount.text.toString().trim().toIntOrNull()
 
             if (product.isEmpty()) {
                 Toast.makeText(this, "Please select a product", Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
             }
-
-            if (rfid.isNotEmpty()) {
-                submitTag(rfid, product)
-            } else {
+            if (rfid.isEmpty()) {
                 Toast.makeText(this, "Please scan a tag first", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
             }
+            if (bagSize.isEmpty() || bagCount == null || bagCount <= 0) {
+                Toast.makeText(this, "Enter a valid bag size and count", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+
+            submitTag(rfid, product, bagSize, bagCount)
         }
 
         binding.btnAllAssigned.setOnClickListener {
@@ -87,6 +101,69 @@ class TagAssignmentActivity : AppCompatActivity() {
 
         binding.btnSubmit.applyPressScaleFeedback()
         binding.btnAllAssigned.applyPressScaleFeedback()
+
+        checkFormCompletion()
+    }
+
+    private fun loadProductMeta() {
+        val raw = intent.getStringExtra("product_meta_json")
+            ?: getSharedPreferences("sap_data", Context.MODE_PRIVATE).getString("product_meta_json", "")
+        if (raw.isNullOrBlank()) return
+        try {
+            val json = JSONObject(raw)
+            val map = mutableMapOf<String, Pair<String, Int>>()
+            json.keys().forEach { code ->
+                val entry = json.getJSONObject(code)
+                map[code] = entry.optString("bagSize", "") to entry.optInt("bagCount", 0)
+            }
+            productMeta = map
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    /** Auto-fills bag size/count from the selected product's SAP metadata; the operator can still edit either. */
+    private fun applyProductDefaults(productCode: String) {
+        val meta = productMeta[productCode] ?: return
+        val (bagSize, bagCount) = meta
+        if (bagSize.isNotEmpty()) binding.etBagSize.setText(bagSize)
+        if (bagCount > 0) binding.etBagCount.setText(bagCount.toString())
+    }
+
+    private fun setupBagFieldWatchers() {
+        val watcher = object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+            override fun afterTextChanged(s: Editable?) = checkFormCompletion()
+        }
+        binding.etRfid.addTextChangedListener(watcher)
+        binding.etBagSize.addTextChangedListener(watcher)
+        binding.etBagCount.addTextChangedListener(watcher)
+        binding.spinnerProduct.setOnItemClickListener { _, _, _, _ ->
+            applyProductDefaults(binding.spinnerProduct.text.toString().split(" - ").firstOrNull() ?: "")
+            checkFormCompletion()
+        }
+    }
+
+    private fun updateFieldColor(til: TextInputLayout, valid: Boolean) {
+        til.boxStrokeColor = getColor(if (valid) R.color.success else R.color.border_primary)
+    }
+
+    private fun checkFormCompletion() {
+        val rfidOk = binding.etRfid.text.toString().isNotBlank()
+        val productOk = binding.spinnerProduct.text.toString().isNotBlank() && binding.spinnerProduct.isEnabled
+        val bagSizeOk = binding.etBagSize.text.toString().isNotBlank()
+        val bagCountOk = (binding.etBagCount.text.toString().toIntOrNull() ?: 0) > 0
+
+        updateFieldColor(binding.tilRfid, rfidOk)
+        updateFieldColor(binding.tilBagSize, bagSizeOk)
+        updateFieldColor(binding.tilBagCount, bagCountOk)
+
+        val complete = rfidOk && productOk && bagSizeOk && bagCountOk
+        val wasEnabled = binding.btnSubmit.isEnabled
+        binding.btnSubmit.isEnabled = complete
+        binding.btnSubmit.alpha = if (complete) 1f else 0.4f
+        if (complete && !wasEnabled) binding.btnSubmit.flashAttention()
     }
 
     private fun loadSettings() {
@@ -112,6 +189,7 @@ class TagAssignmentActivity : AppCompatActivity() {
             val adapter = ArrayAdapter(this, android.R.layout.simple_dropdown_item_1line, selectedProducts)
             binding.spinnerProduct.setAdapter(adapter)
             binding.spinnerProduct.setText(selectedProducts[0], false)
+            applyProductDefaults(selectedProducts[0].split(" - ").firstOrNull() ?: "")
         } else {
             binding.tilProduct.hint = "No products selected"
             binding.spinnerProduct.isEnabled = false
@@ -172,7 +250,9 @@ class TagAssignmentActivity : AppCompatActivity() {
                     val currentSelection = binding.spinnerProduct.text.toString()
                     if (!selectedProducts.contains(currentSelection)) {
                         binding.spinnerProduct.setText(selectedProducts[0], false)
+                        applyProductDefaults(selectedProducts[0].split(" - ").firstOrNull() ?: "")
                     }
+                    checkFormCompletion()
                 }
             }
         } catch (e: Exception) {
@@ -209,12 +289,12 @@ class TagAssignmentActivity : AppCompatActivity() {
             val barcode = json.optString("barcode", "")
 
             runOnUiThread {
-                binding.btnSubmit.isEnabled = true
                 if (status.equals("Success", ignoreCase = true)) {
                     Toast.makeText(this, "Success: $palletCode assigned. Barcode: $barcode", Toast.LENGTH_SHORT).show()
                     binding.etRfid.setText("")
                     palletSequence++
                 } else {
+                    checkFormCompletion()
                     AlertDialog.Builder(this, R.style.AppAlertDialogTheme)
                         .setTitle("Assignment Failed")
                         .setMessage(message)
@@ -252,7 +332,7 @@ class TagAssignmentActivity : AppCompatActivity() {
         }
     }
 
-    private fun submitTag(rfid: String, product: String) {
+    private fun submitTag(rfid: String, product: String, bagSize: String, bagCount: Int) {
         val productid = product.split(" - ").firstOrNull() ?: product
         val docNum = intent.getStringExtra("doc_number") ?: ""
         val docType = intent.getStringExtra("doc_type") ?: ""
@@ -266,6 +346,12 @@ class TagAssignmentActivity : AppCompatActivity() {
             put("sourceDocumentNumber", docNum)
             put("productCode", productid)
             put("actualPalletSequence", palletSequence)
+            // Field name is snake_case on the wire (RfidAssignmentMessage.bag_size) -
+            // do not "fix" it to camelCase, the station won't recognize bagSize here.
+            put("bag_size", bagSize)
+            put("bagCount", bagCount)
+            put("useDefaultBatchRef", true)
+            put("batchRef", "")
         }
 
         val topic = "PPNAM/scanner_$scannerInt/req/assignment_v2"
@@ -274,7 +360,7 @@ class TagAssignmentActivity : AppCompatActivity() {
             runOnUiThread {
                 if (throwable != null) {
                     Toast.makeText(this, "Publish Failed: ${throwable.message}", Toast.LENGTH_LONG).show()
-                    binding.btnSubmit.isEnabled = true
+                    checkFormCompletion()
                 } else {
                     Toast.makeText(this, "Sending Assignment...", Toast.LENGTH_SHORT).show()
                 }
@@ -343,9 +429,12 @@ class TagAssignmentActivity : AppCompatActivity() {
     private fun moveToOffload() {
         val docNum = intent.getStringExtra("doc_number") ?: ""
         val docType = intent.getStringExtra("doc_type") ?: ""
+        val productMetaJson = intent.getStringExtra("product_meta_json")
+            ?: getSharedPreferences("sap_data", Context.MODE_PRIVATE).getString("product_meta_json", "")
         val intent = Intent(this, AssignmentActivity::class.java).apply {
             putExtra("doc_number", docNum)
             putExtra("doc_type", docType)
+            putExtra("product_meta_json", productMetaJson)
         }
         startActivityForward(intent)
         finish()

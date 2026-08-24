@@ -4,13 +4,11 @@ import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.view.WindowManager
-import android.widget.Toast
 import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import com.mitas.ppnam.station1.databinding.ActivityMainBinding
-import java.util.concurrent.atomic.AtomicBoolean
 
 class MainActivity : AppCompatActivity() {
 
@@ -40,7 +38,16 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        
+
+        // No session (fresh process, or logged out) — the dashboard requires an operator.
+        if (OperatorSessionHolder.session == null) {
+            startActivity(Intent(this, LoginActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+            })
+            finish()
+            return
+        }
+
         loadSettings()
 
         binding = ActivityMainBinding.inflate(layoutInflater)
@@ -62,63 +69,41 @@ class MainActivity : AppCompatActivity() {
         MqttManager.getInstance(this).addStationStatusListener(stationStatusListener)
     }
 
-    override fun onResume() {
-        super.onResume()
-        updateTileStates()
-    }
-
     private fun loadSettings() {
         val prefs = getSharedPreferences("settings", Context.MODE_PRIVATE)
         scannerInt = prefs.getInt("scanner_int", 1)
     }
 
     private fun setupDashboard() {
-        binding.tileSapLookup.setOnClickListener {
-            startActivityForward(Intent(this, ManualSapEntryActivity::class.java))
-        }
-
-        binding.tileProductRequest.setOnClickListener {
-            val sapPrefs = getSharedPreferences("sap_data", Context.MODE_PRIVATE)
-            val intent = Intent(this, ProductRequestActivity::class.java).apply {
-                putExtra("doc_number", sapPrefs.getString("last_doc_number", ""))
-                putExtra("doc_type", sapPrefs.getString("last_doc_type", ""))
-            }
-            startActivityForward(intent)
-        }
-
         binding.tileTagAssignment.setOnClickListener {
             startActivityForward(Intent(this, TagAssignmentActivity::class.java))
         }
 
-        binding.tileOffload.setOnClickListener {
-            startActivityForward(Intent(this, AssignmentActivity::class.java))
+        binding.tileBagPairing.setOnClickListener {
+            startActivityForward(Intent(this, BagPairingActivity::class.java))
         }
 
         binding.btnSettings.setOnClickListener {
             startActivityForward(Intent(this, SettingsActivity::class.java))
         }
 
-        binding.tileSapLookup.applyPressScaleFeedback()
-        binding.tileProductRequest.applyPressScaleFeedback()
+        // Operator control, mirroring Station 2's top bar: shows "name · role", tapping it asks
+        // to log out.
+        OperatorSessionHolder.session?.let { session ->
+            binding.tvOperator.text =
+                if (session.role.isNotBlank()) "${session.operatorName} · ${session.role}"
+                else session.operatorName
+        }
+        binding.layoutOperator.setOnClickListener { showLogoutDialog() }
+
+        // The login's operator_context decides which sub-apps this operator gets (allowedTabs,
+        // fail-open on an empty list — display hint only, the station re-checks server-side).
+        val session = OperatorSessionHolder.session
+        setTileEnabled(binding.tileTagAssignment, session?.canShow(StationTab.TAG_ASSIGNMENT) ?: false)
+        setTileEnabled(binding.tileBagPairing, session?.canShow(StationTab.BAG_PAIRING) ?: false)
+
         binding.tileTagAssignment.applyPressScaleFeedback()
-        binding.tileOffload.applyPressScaleFeedback()
-    }
-
-    private fun updateTileStates() {
-        val sapPrefs = getSharedPreferences("sap_data", Context.MODE_PRIVATE)
-        val sessionId = sapPrefs.getString("session_id", null)
-        val currentStep = sapPrefs.getInt("current_step", 0)
-        val hasSession = !sessionId.isNullOrEmpty()
-
-        // 1. SAP Lookup is always enabled (Step 0)
-        // 2. Product Request enabled after SAP Lookup (Step 1+)
-        setTileEnabled(binding.tileProductRequest, hasSession && currentStep >= 1)
-        
-        // 3. Tag Assignment enabled after Product Request (Step 2+)
-        setTileEnabled(binding.tileTagAssignment, hasSession && currentStep >= 2)
-        
-        // 4. Offloading enabled after Tag Assignment (Step 3+)
-        setTileEnabled(binding.tileOffload, hasSession && currentStep >= 3)
+        binding.tileBagPairing.applyPressScaleFeedback()
     }
 
     private fun setTileEnabled(view: com.google.android.material.card.MaterialCardView, enabled: Boolean) {
@@ -126,6 +111,22 @@ class MainActivity : AppCompatActivity() {
         view.alpha = if (enabled) 1.0f else 0.5f
         view.isClickable = enabled
         view.isFocusable = enabled
+    }
+
+    private fun showLogoutDialog() {
+        androidx.appcompat.app.AlertDialog.Builder(this, R.style.AppAlertDialogTheme)
+            .setTitle(getString(R.string.logout_dialog_title))
+            .setMessage(getString(R.string.logout_dialog_message))
+            .setPositiveButton(getString(R.string.btn_log_out)) { _, _ ->
+                AuthClient(this).logout {
+                    startActivity(Intent(this, LoginActivity::class.java).apply {
+                        flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                    })
+                    finish()
+                }
+            }
+            .setNegativeButton(getString(R.string.btn_cancel), null)
+            .show()
     }
 
     override fun onDestroy() {

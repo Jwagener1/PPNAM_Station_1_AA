@@ -35,9 +35,45 @@
                 android:contentDescription="Systems One"
                 android:scaleType="fitCenter"
                 android:src="@drawable/s1_logo_white"
-                app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintTop_toTopOf="parent" />
+
+            <!-- Operator control, mirroring Station 2's top-bar operator row: the logout icon is
+                 the affordance — without it this reads as a plain caption, and it is one of the
+                 two routes to switching operator (Settings offers the other). -->
+            <LinearLayout
+                android:id="@+id/layoutOperator"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:background="?attr/selectableItemBackground"
+                android:clickable="true"
+                android:focusable="true"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:padding="4dp"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@id/imgLogo">
+
+                <ImageView
+                    android:layout_width="16dp"
+                    android:layout_height="16dp"
+                    android:contentDescription="Log out"
+                    android:src="@drawable/ic_logout"
+                    app:tint="@color/primary_action" />
+
+                <TextView
+                    android:id="@+id/tvOperator"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="6dp"
+                    android:ellipsize="end"
+                    android:maxLines="1"
+                    android:textColor="@color/text_primary"
+                    android:textSize="12sp"
+                    android:textStyle="bold"
+                    tools:text="J. Smith · Operator" />
+            </LinearLayout>
 
             <!-- Settings Button -->
             <ImageButton
@@ -82,87 +118,7 @@
             android:alignmentMode="alignMargins"
             android:columnCount="2">
 
-            <!-- 1. SAP Lookup (Top Left) -->
-            <com.google.android.material.card.MaterialCardView
-                android:id="@+id/tileSapLookup"
-                android:layout_width="0dp"
-                android:layout_height="200dp"
-                android:layout_columnWeight="1"
-                android:layout_margin="8dp"
-                android:clickable="true"
-                android:focusable="true"
-                app:cardBackgroundColor="@color/tile_purple"
-                app:cardCornerRadius="16dp"
-                app:cardElevation="2dp"
-                app:rippleColor="#33FFFFFF">
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="match_parent"
-                    android:gravity="center"
-                    android:orientation="vertical"
-                    android:padding="16dp">
-
-                    <ImageView
-                        android:layout_width="80dp"
-                        android:layout_height="80dp"
-                        android:contentDescription="SAP Lookup icon"
-                        android:src="@drawable/sap_lookup" />
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="16dp"
-                        android:text="@string/title_lookup_sap"
-                        android:textAlignment="center"
-                        android:textColor="@color/text_primary"
-                        android:textSize="18sp"
-                        android:textStyle="bold"
-                        android:letterSpacing="-0.01" />
-                </LinearLayout>
-            </com.google.android.material.card.MaterialCardView>
-
-            <!-- 2. Product Request (Top Right) -->
-            <com.google.android.material.card.MaterialCardView
-                android:id="@+id/tileProductRequest"
-                android:layout_width="0dp"
-                android:layout_height="200dp"
-                android:layout_columnWeight="1"
-                android:layout_margin="8dp"
-                android:clickable="true"
-                android:focusable="true"
-                app:cardBackgroundColor="@color/tile_amber"
-                app:cardCornerRadius="16dp"
-                app:cardElevation="2dp"
-                app:rippleColor="#33FFFFFF">
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="match_parent"
-                    android:gravity="center"
-                    android:orientation="vertical"
-                    android:padding="16dp">
-
-                    <ImageView
-                        android:layout_width="80dp"
-                        android:layout_height="80dp"
-                        android:contentDescription="Product Request icon"
-                        android:src="@drawable/product_request" />
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="16dp"
-                        android:text="@string/title_product_request"
-                        android:textAlignment="center"
-                        android:textColor="@color/text_primary"
-                        android:textSize="18sp"
-                        android:textStyle="bold"
-                        android:letterSpacing="-0.01" />
-                </LinearLayout>
-            </com.google.android.material.card.MaterialCardView>
-
-            <!-- 3. Tag Assignment (Bottom Left) -->
+            <!-- 1. Tag Assignment -->
             <com.google.android.material.card.MaterialCardView
                 android:id="@+id/tileTagAssignment"
                 android:layout_width="0dp"
@@ -202,9 +158,9 @@
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
-            <!-- 4. Offloading (Bottom Right) -->
+            <!-- 2. Bag Pairing -->
             <com.google.android.material.card.MaterialCardView
-                android:id="@+id/tileOffload"
+                android:id="@+id/tileBagPairing"
                 android:layout_width="0dp"
                 android:layout_height="200dp"
                 android:layout_columnWeight="1"
@@ -226,14 +182,14 @@
                     <ImageView
                         android:layout_width="80dp"
                         android:layout_height="80dp"
-                        android:contentDescription="Offloading icon"
-                        android:src="@drawable/offloading" />
+                        android:contentDescription="Bag Pairing icon"
+                        android:src="@drawable/product_request" />
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="16dp"
-                        android:text="Offloading"
+                        android:text="@string/tab_bag_pairing"
                         android:textAlignment="center"
                         android:textColor="@color/text_primary"
                         android:textSize="18sp"

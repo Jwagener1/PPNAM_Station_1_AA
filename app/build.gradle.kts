@@ -56,6 +56,8 @@ android {
 
     buildFeatures {
         viewBinding = true
+        // Settings' Diagnostics card shows the app version from BuildConfig, like Station 2.
+        buildConfig = true
     }
 
     packaging {

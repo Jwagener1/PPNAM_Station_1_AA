@@ -48,4 +48,14 @@
         <item name="android:letterSpacing">-0.015</item>
         <item name="android:textColor">@color/text_primary</item>
     </style>
+
+    <!-- Station 2's SectionLabel/DiagnosticRow label: labelSmall (11sp medium) with 0.8sp
+         tracking (0.8/11 in em), muted, uppercase. -->
+    <style name="SettingsSectionLabel">
+        <item name="android:textSize">11sp</item>
+        <item name="android:fontFamily">sans-serif-medium</item>
+        <item name="android:letterSpacing">0.073</item>
+        <item name="android:textColor">@color/text_muted</item>
+        <item name="android:textAllCaps">true</item>
+    </style>
 </resources>

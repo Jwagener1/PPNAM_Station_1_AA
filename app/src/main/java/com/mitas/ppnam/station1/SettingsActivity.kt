@@ -15,7 +15,10 @@ class SettingsActivity : AppCompatActivity() {
     private lateinit var binding: ActivitySettingsBinding
 
     private val connectionStatusListener: (ConnectionStatus) -> Unit = { status ->
-        runOnUiThread { binding.connectionPill.setStatus(status) }
+        runOnUiThread {
+            binding.connectionPill.setStatus(status)
+            updateDiagnostics(status)
+        }
     }
 
     // Ported from Station 2's SettingsViewModel so both apps' supervisor lock behave identically.
@@ -36,6 +39,9 @@ class SettingsActivity : AppCompatActivity() {
 
         setupToolbar()
         MqttManager.getInstance(this).addConnectionStatusListener(connectionStatusListener)
+
+        binding.tvVersion.text = "v${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})"
+        setupSessionSection()
 
         val prefs = getSharedPreferences("settings", Context.MODE_PRIVATE)
         val currentScannerInt = prefs.getInt("scanner_int", 1)
@@ -87,18 +93,9 @@ class SettingsActivity : AppCompatActivity() {
             }
         }
 
-        binding.btnUnassignMode.setOnClickListener {
-            startActivityForward(Intent(this, UnassignActivity::class.java))
-        }
-
-        binding.btnReassignMode.setOnClickListener {
-            startActivityForward(Intent(this, ReassignActivity::class.java))
-        }
-
         binding.btnUnlock.applyPressScaleFeedback()
         binding.btnSaveSettings.applyPressScaleFeedback()
-        binding.btnUnassignMode.applyPressScaleFeedback()
-        binding.btnReassignMode.applyPressScaleFeedback()
+        binding.btnLogOut.applyPressScaleFeedback()
 
         onBackPressedDispatcher.addCallback(this) { finishBackward() }
     }
@@ -106,6 +103,66 @@ class SettingsActivity : AppCompatActivity() {
     private fun setupToolbar() {
         setSupportActionBar(binding.toolbar)
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
+    }
+
+    /**
+     * The Diagnostics card, mirroring Station 2's SettingsScreen: broker link and station
+     * presence are separate failures with separate remedies, and the composite pill can only
+     * name one of them at a time — so both get their own row here.
+     */
+    private fun updateDiagnostics(status: ConnectionStatus) {
+        val green = getColor(R.color.success)
+        val blue = getColor(R.color.primary_action)
+        val red = getColor(R.color.danger)
+        val muted = getColor(R.color.text_muted)
+
+        when (status) {
+            ConnectionStatus.CONNECTED, ConnectionStatus.STATION_OFFLINE ->
+                binding.pillBroker.setAppearance(green, "Connected")
+            ConnectionStatus.RECONNECTING ->
+                binding.pillBroker.setAppearance(blue, "Reconnecting")
+            ConnectionStatus.OFFLINE ->
+                binding.pillBroker.setAppearance(red, "Disconnected")
+        }
+
+        // With the broker down, the retained presence value is stale rather than false — saying
+        // "offline" there would blame the station for the broker's fault.
+        when (status) {
+            ConnectionStatus.CONNECTED -> binding.pillStation.setAppearance(green, "Online")
+            ConnectionStatus.STATION_OFFLINE -> binding.pillStation.setAppearance(blue, "Offline")
+            else -> binding.pillStation.setAppearance(muted, "Unknown")
+        }
+    }
+
+    /**
+     * The Session card, mirroring Station 2's: the home screen's operator label is one route to
+     * switching users, and Settings is the obvious second home for it.
+     */
+    private fun setupSessionSection() {
+        val session = OperatorSessionHolder.session
+        if (session == null) {
+            binding.groupSession.visibility = View.GONE
+            return
+        }
+        binding.groupSession.visibility = View.VISIBLE
+        binding.tvSignedInAs.text =
+            if (session.role.isNotBlank()) "${session.operatorName} · ${session.role}"
+            else session.operatorName
+        binding.btnLogOut.setOnClickListener {
+            androidx.appcompat.app.AlertDialog.Builder(this, R.style.AppAlertDialogTheme)
+                .setTitle(getString(R.string.logout_dialog_title))
+                .setMessage(getString(R.string.logout_dialog_message))
+                .setPositiveButton(getString(R.string.btn_log_out)) { _, _ ->
+                    AuthClient(this).logout {
+                        startActivity(Intent(this, LoginActivity::class.java).apply {
+                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+                        })
+                        finish()
+                    }
+                }
+                .setNegativeButton(getString(R.string.btn_cancel), null)
+                .show()
+        }
     }
 
     private fun submitPin() {

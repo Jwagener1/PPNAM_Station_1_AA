@@ -35,8 +35,9 @@
         android:theme="@style/Theme.SysOneScanner">
 
         <activity
-            android:name=".MainActivity"
+            android:name=".LoginActivity"
             android:exported="true"
+            android:label="Log In"
             android:windowSoftInputMode="stateHidden|adjustResize">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -45,22 +46,9 @@
         </activity>
 
         <activity
-            android:name=".ManualSapEntryActivity"
+            android:name=".MainActivity"
             android:exported="false"
-            android:label="Manual SAP Entry"
-            android:theme="@style/Theme.SysOneScanner" />
-
-        <activity
-            android:name=".ProductRequestActivity"
-            android:exported="false"
-            android:label="Product Request"
-            android:theme="@style/Theme.SysOneScanner" />
-
-        <activity
-            android:name=".AssignmentActivity"
-            android:exported="false"
-            android:label="Assignments"
-            android:theme="@style/Theme.SysOneScanner" />
+            android:windowSoftInputMode="stateHidden|adjustResize" />
 
         <activity
             android:name=".TagAssignmentActivity"
@@ -69,20 +57,14 @@
             android:theme="@style/Theme.SysOneScanner" />
 
         <activity
+            android:name=".BagPairingActivity"
+            android:exported="false"
+            android:label="Bag Pairing"
+            android:theme="@style/Theme.SysOneScanner" />
+
+        <activity
             android:name=".SettingsActivity"
             android:exported="false"
-            android:theme="@style/Theme.SysOneScanner" />
-
-        <activity
-            android:name=".UnassignActivity"
-            android:exported="false"
-            android:label="Unassign Mode"
-            android:theme="@style/Theme.SysOneScanner" />
-
-        <activity
-            android:name=".ReassignActivity"
-            android:exported="false"
-            android:label="Reassign Mode"
             android:theme="@style/Theme.SysOneScanner" />
 
     </application>

@@ -10,45 +10,60 @@
     <string name="mqtt_connect_failed">MQTT connect failed: %s</string>
     <string name="mqtt_publish_failed">Publish failed: %s</string>
 
-    <string name="tab_bag_weight">Bag Weight</string>
+    <!-- Sub-apps -->
     <string name="tab_tag_assignment">Tag Assignment</string>
+    <string name="tab_bag_pairing">Bag Pairing</string>
 
+    <!-- Tag Assignment -->
+    <string name="hint_scan_tag">Scan Tag</string>
+    <string name="auto_send_tip">Tag will be sent automatically after scan.</string>
+    <string name="label_last_scanned">Last Scanned</string>
+    <string name="status_no_tag">No tag scanned yet</string>
+    <string name="tx_status_sent">SENT</string>
+
+    <!-- Bag Pairing -->
+    <string name="section_scan">Scan</string>
+    <string name="section_bag_details">Bag Details</string>
     <string name="hint_tag_id">RFID Tag ID</string>
     <string name="hint_barcode">Barcode</string>
-    <string name="hint_rfid">RFID</string>
     <string name="hint_bag_weight">Bag Weight</string>
-    <string name="hint_scan_tag">Scan Tag</string>
-    <string name="hint_source_doc_number">Source Document Number</string>
-    <string name="hint_doc_type">Doc Type</string>
+    <string name="hint_bag_count">Number of Bags</string>
+    <string name="hint_batch_ref">Batch Reference</string>
+    <string name="btn_confirm">Confirm</string>
+    <string name="btn_edit">Edit</string>
+    <string name="btn_submit_pairing">Submit Pairing</string>
+    <string name="msg_pairing_sent">Pairing sent</string>
+    <string name="error_value_required">Enter a value first</string>
 
-    <string name="submit">Submit</string>
-    <string name="btn_lookup">LOOKUP</string>
-    <string name="auto_send_tip">Tag will be sent automatically after scan.</string>
-    <string name="recent_scans">Recent Scans</string>
-    <string name="tx_status_sent">SENT</string>
-    <string name="tx_status_fail">FAIL</string>
-    <string name="title_assignments">Assignments</string>
-    <string name="title_lookup_sap">Lookup SAP Entry</string>
-    <string name="status_label">Status</string>
-    <string name="message_label">Message</string>
+    <!-- Shared send states -->
+    <string name="status_sending">Sending…</string>
+    <string name="status_send_failed">Failed to send — check connection</string>
 
-    <string name="title_product_request">Product Request</string>
-    <string name="title_offload">Offload</string>
-    <string name="btn_fetch_products">Fetch Products</string>
-    <string name="btn_submit_request">Submit Product Request</string>
+    <!-- Login / session -->
+    <string name="title_log_in">Log In</string>
+    <string name="hint_username">Username</string>
+    <string name="hint_password">Password</string>
+    <string name="btn_log_in">Log In</string>
+    <string name="label_or_scan_badge">or scan your badge</string>
+    <string name="exit_dialog_title">Close the app?</string>
+    <string name="exit_dialog_message">You\'ll leave PPNAM Station 1 and return to the home screen.</string>
+    <string name="exit_dialog_close">Close</string>
+    <string name="exit_dialog_stay">Stay</string>
+    <string name="logout_dialog_title">Log out?</string>
+    <string name="logout_dialog_message">You\'ll need to log in again to continue.</string>
+    <string name="btn_log_out">Log Out</string>
+    <string name="btn_cancel">Cancel</string>
+
+    <!-- Settings -->
+    <string name="section_diagnostics">Diagnostics</string>
+    <string name="section_configuration">Configuration</string>
+    <string name="section_station">Station</string>
+    <string name="section_session">Session</string>
+    <string name="label_mqtt_broker">MQTT Broker</string>
+    <string name="label_station_row">Station 1</string>
+    <string name="label_version">Version</string>
+    <string name="label_signed_in_as">Signed in as</string>
 
     <string name="station_offline_title">MAIN STATION OFFLINE</string>
     <string name="station_offline_message">Please wait for the main station to reconnect...</string>
-
-    <string name="title_unassign_mode">Unassign Mode</string>
-    <string name="msg_unassign_hint">Scan an RFID tag to unassign it from the system.</string>
-    <string name="label_last_scanned">Last Scanned</string>
-    <string name="status_no_tag">No tag scanned yet</string>
-    <string name="btn_open_unassign">Open Unassign Mode</string>
-    <string name="title_reassign_mode">Reassign Mode</string>
-    <string name="msg_reassign_hint">Scan a Barcode and an RFID tag to reassign them.</string>
-    <string name="btn_open_reassign">Open Reassign Mode</string>
-    <string name="msg_sending_reassign">Sending reassign request...</string>
-    <string name="msg_reassign_success">Reassign request sent successfully</string>
-    <string name="msg_reassign_failed">Failed to send: %s</string>
 </resources>

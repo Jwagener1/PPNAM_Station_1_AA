@@ -13,13 +13,16 @@ contract, reverse-engineered from Device_Initializing/RfidDeviceInitializer.cs
 and Models/Rfid*.cs in PPNAM-Station-1-App (read-only reference, no code
 shared or copied from that repo).
 
-Topic convention (post "Align MQTT topic structure with Station 2 req/res
-convention"): requests are PPNAM/{deviceId}/req/{suffix}; direct replies go
-to PPNAM/{requestingScannerId}/res/{suffix} with payload deviceId set to
-that scanner's id (not the station's own id); station-initiated broadcasts
+Topic convention (post 2026-08-17 per-station namespace restructure): all
+traffic nests under PPNAM/station_N/... Requests are
+PPNAM/station_N/{deviceId}/req/{suffix}; direct replies go to
+PPNAM/station_N/{requestingScannerId}/res/{suffix} with payload deviceId set
+to that scanner's id (not the station's own id); station-initiated broadcasts
 (tag_assignment_request, offload_start, and the broadcast variant of
 sap_products_response) go to PPNAM/station_N/res/{suffix} with deviceId
-"station_N". status is unchanged: PPNAM/{deviceId}/status, retained, LWT.
+"station_N". Presence is retained online/offline (plus LWT) on the base
+topic nodes PPNAM/station_N and PPNAM/station_N/{deviceId} — no /status
+sub-topic.
 
 Usage:
     python tools/mqtt_simulator.py [--station-id 1] [--scanner-id 1]
@@ -114,7 +117,7 @@ class StationSimulator:
         )
         self.client.username_pw_set(MQTT_USERNAME, MQTT_PASSWORD)
         self.client.tls_set()
-        self.client.will_set(f"{self.station_topic}/status", "offline", qos=1, retain=True)
+        self.client.will_set(self.station_topic, "offline", qos=1, retain=True)
         self.client.on_connect = self._on_connect
         self.client.on_message = self._on_message
 
@@ -140,8 +143,8 @@ class StationSimulator:
 
     def _on_connect(self, client, userdata, flags, rc):
         print(f"[sim] connected rc={rc}")
-        client.publish(f"{self.station_topic}/status", "online", qos=1, retain=True)
-        client.subscribe("PPNAM/#", qos=1)
+        client.publish(self.station_topic, "online", qos=1, retain=True)
+        client.subscribe(f"{self.station_topic}/#", qos=1)
 
     def _on_message(self, client, userdata, msg):
         topic = msg.topic
@@ -150,12 +153,12 @@ class StationSimulator:
         except Exception:
             return  # not JSON (e.g. retained status messages) - ignore
 
-        # Requests are PPNAM/{deviceId}/req/{suffix} - anything else (our own
-        # res/ replies, status) is not an inbound request.
+        # Requests are PPNAM/station_N/{deviceId}/req/{suffix} - anything else
+        # (our own res/ replies, presence) is not an inbound request.
         parts = topic.split("/")
-        if len(parts) < 4 or parts[2] != "req":
+        if len(parts) < 5 or parts[1] != f"station_{self.station_id}" or parts[3] != "req":
             return
-        device_id, suffix = parts[1], "/".join(parts[3:])
+        device_id, suffix = parts[2], "/".join(parts[4:])
 
         if not device_id.startswith("scanner_"):
             return  # only react to scanner-originated inbound topics
@@ -172,11 +175,11 @@ class StationSimulator:
             print(f"[sim] ERROR handling {topic}: {e}")
 
     def publish_station(self, requester: str, suffix: str, payload: dict):
-        """Direct reply to the requesting scanner: PPNAM/{requester}/res/{suffix},
+        """Direct reply to the requesting scanner: PPNAM/station_N/{requester}/res/{suffix},
         with payload deviceId forced to that scanner's id (EnsureResponseDeviceId)."""
         payload = dict(payload)
         payload["deviceId"] = requester
-        topic = f"PPNAM/{requester}/res/{suffix}"
+        topic = f"{self.station_topic}/{requester}/res/{suffix}"
         body = json.dumps(payload)
         print(f"[sim] -> {topic}: {body}")
         self.client.publish(topic, body, qos=1)
@@ -544,10 +547,10 @@ class StationSimulator:
         })
 
     def go_offline(self):
-        self.client.publish(f"{self.station_topic}/status", "offline", qos=1, retain=True)
+        self.client.publish(self.station_topic, "offline", qos=1, retain=True)
 
     def go_online(self):
-        self.client.publish(f"{self.station_topic}/status", "online", qos=1, retain=True)
+        self.client.publish(self.station_topic, "online", qos=1, retain=True)
 
     def print_state(self):
         with self.lock:

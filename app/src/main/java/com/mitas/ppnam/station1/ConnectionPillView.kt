@@ -41,8 +41,12 @@ class ConnectionPillView @JvmOverloads constructor(
             layoutParams = LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT).apply {
                 marginStart = dp(5)
             }
-            textSize = 12f
-            typeface = Typeface.DEFAULT_BOLD
+            // Material 3 labelSmall, the style Station 2's pill text uses: 11sp medium with
+            // 0.5sp tracking (expressed here in em: 0.5/11).
+            textSize = 11f
+            typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+            letterSpacing = 0.5f / 11f
+            maxLines = 1
         }
         addView(label)
 
@@ -56,13 +60,18 @@ class ConnectionPillView @JvmOverloads constructor(
             ConnectionStatus.STATION_OFFLINE -> ContextCompat.getColor(context, R.color.pill_warning)
             ConnectionStatus.OFFLINE -> ContextCompat.getColor(context, R.color.pill_offline)
         }
+        // Same wording as Station 2's pill ("Station 2 offline"), with this station's number.
         val text = when (status) {
             ConnectionStatus.CONNECTED -> "Connected"
             ConnectionStatus.RECONNECTING -> "Reconnecting"
-            ConnectionStatus.STATION_OFFLINE -> "Station Offline"
+            ConnectionStatus.STATION_OFFLINE -> "Station 1 offline"
             ConnectionStatus.OFFLINE -> "Offline"
         }
+        setAppearance(color, text)
+    }
 
+    /** Renders the pill in an arbitrary colour/label — used by Settings' diagnostics rows. */
+    fun setAppearance(color: Int, text: String) {
         val backgroundAlpha = (0.12f * 255).toInt()
         background = GradientDrawable().apply {
             shape = GradientDrawable.RECTANGLE

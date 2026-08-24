@@ -129,7 +129,10 @@ class MqttManager private constructor(context: Context) {
 
         val prefs = appContext.getSharedPreferences("settings", Context.MODE_PRIVATE)
         val scannerInt = prefs.getInt("scanner_int", 1)
-        val statusTopic = "PPNAM/scanner_$scannerInt/status"
+        val stationInt = prefs.getInt("station_int", 1)
+        // Presence lives on this scanner's base node (retained, also the Last Will) — the
+        // contract's presence QoS is 2.
+        val presenceTopic = MqttTopics.devicePresence(stationInt, "scanner_$scannerInt")
 
         client = MqttClient.builder()
             .useMqttVersion3()
@@ -149,7 +152,7 @@ class MqttManager private constructor(context: Context) {
             ?.keepAlive(15)
             ?.cleanSession(true)
             ?.willPublish()
-                ?.topic(statusTopic)
+                ?.topic(presenceTopic)
                 ?.payload("offline".toByteArray())
                 ?.qos(MqttQos.EXACTLY_ONCE)
                 ?.retain(true)
@@ -160,14 +163,13 @@ class MqttManager private constructor(context: Context) {
                 if (throwable == null) {
                     Log.i("MqttManager", "Connected")
                     
-                    val stationInt = prefs.getInt("station_int", 1)
                     currentStationId = stationInt // Sync with configured Station ID
 
                     // Explicitly publish online status to clear any stale LWT
-                    publish(statusTopic, "online", true)
-                    
-                    // Subscribe to the global PPNAM topic
-                    subscribeInternal("PPNAM/#")
+                    publish(presenceTopic, "online", true, MqttQos.EXACTLY_ONCE)
+
+                    // One subscription captures all of this station's traffic, presence included
+                    subscribeInternal(MqttTopics.stationWildcard(stationInt))
                     
                     notifyListeners(true)
                 } else {
@@ -192,15 +194,12 @@ class MqttManager private constructor(context: Context) {
             ?.callback { publish ->
                 val topic = publish.topic.toString()
                 
-                // Internal filtering for Station Status
-                if (topic == "PPNAM/station_$currentStationId/status") {
+                // Internal filtering for Station Status — retained presence on the station base node
+                if (topic == MqttTopics.stationPresence(currentStationId)) {
                     val payload = String(publish.payloadAsBytes, Charsets.UTF_8).lowercase()
                     val online = payload == "online"
                     if (online != isStationOnline) {
                         isStationOnline = online
-                        if (!online) {
-                            resetWorkflow()
-                        }
                         notifyStationListeners(online)
                     }
                 }
@@ -248,13 +247,6 @@ class MqttManager private constructor(context: Context) {
             return topic.startsWith(prefix)
         }
         return false
-    }
-
-    private fun resetWorkflow() {
-        appContext.getSharedPreferences("sap_data", Context.MODE_PRIVATE).edit()
-            .remove("session_id")
-            .putInt("current_step", 0)
-            .apply()
     }
 
     fun publish(topic: String, payload: String, retain: Boolean = false, qos: MqttQos = MqttQos.AT_LEAST_ONCE, onComplete: (Throwable?) -> Unit = {}) {
@@ -319,11 +311,12 @@ class MqttManager private constructor(context: Context) {
         }
         val prefs = appContext.getSharedPreferences("settings", Context.MODE_PRIVATE)
         val scannerInt = prefs.getInt("scanner_int", 1)
-        
+        val stationInt = prefs.getInt("station_int", 1)
+
         notifyListeners(false)
-        
+
         // Publish offline status and wait for it to complete before disconnecting
-        publish("PPNAM/scanner_$scannerInt/status", "offline", true) { throwable ->
+        publish(MqttTopics.devicePresence(stationInt, "scanner_$scannerInt"), "offline", true, MqttQos.EXACTLY_ONCE) { throwable ->
             if (throwable != null) {
                 Log.e("MqttManager", "Failed to publish offline status during disconnect", throwable)
             }

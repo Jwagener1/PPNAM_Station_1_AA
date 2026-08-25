@@ -1,21 +1,33 @@
 # Station 1 — Operator Login over MQTT (Android side)
 
-The Android app now requires an operator login at launch, mirroring PPNAM Station 2 AA's login
-(SCRAM-SHA-256 credentials or an RFID badge scan). **The Station 1 Windows app does not yet
-implement the station side of these messages** — until it does, every login attempt will time out
-with "Station did not respond".
+> **2026-08-25:** The normative Station 1 scanner contract is now the Windows repo's
+> `docs rev 2/Station1_MQTT_Contract_Rev_2.md` (version 3.0.0). This file remains the
+> Android-side implementation notes. Deltas the app must still adopt from 3.0.0:
+> await `scram_proof_result` (not `operator_context`) after the SCRAM proof, per the
+> Station 2 v4.1 authority; `allowedTabs` values become `tag_assignment` / `offload`
+> (was `bag_pairing`) and empty/missing means **no workflows** (fail closed); the
+> provisional `tag_scan`/`bag_pairing` messages below are superseded by the contract's
+> `tag_scan` → `tag_scan_result` and two-step `offload_scan`/`offload_confirm` flows.
 
-The station side can be ported from the Station 2 Windows app's SCRAM handler; the Android client
-(`AuthClient.kt`, `ScramCrypto.kt`) is a direct port of Station 2 AA's `ScramExchange`/`ScramCrypto`.
+The Android app requires an operator login at launch, mirroring PPNAM Station 2 AA's login
+(SCRAM-SHA-256 credentials or an RFID badge scan). The Station 1 Windows backend implements
+the station side of these messages as of the 2026-08-25 REV2 drop (note: its topic routing
+still needs the namespaced-topic fix tracked in contract 3.0.0 §10 before login works
+end-to-end).
+
+The Android client (`AuthClient.kt`, `ScramCrypto.kt`) is a direct port of Station 2 AA's
+`ScramExchange`/`ScramCrypto`.
 
 ## Topics
 
-All on Station 1's existing per-device namespace (see `MqttTopics.kt`):
+All on Station 1's existing per-device namespace (see `MqttTopics.kt`), which follows the
+fleet-wide topic structure in `C:\Dev\Clients\PPNAM\MQTT_TOPIC_STRUCTURE.md`
+(`PPNAM/station_{n}/{deviceId}/req|res/{type}`, presence + LWT on the base nodes):
 
 | Request (`PPNAM/station_{n}/{deviceId}/req/…`) | Response (`…/{deviceId}/res/…`) |
 |---|---|
 | `scram_start_requested` | `scram_challenge` |
-| `scram_proof_requested` | `operator_context` |
+| `scram_proof_requested` | `scram_proof_result` (contract 3.0.0; the shipped client still awaits `operator_context` — see banner) |
 | `login_requested` (badge) | `operator_context` |
 | `reader_logout_requested` | none required |
 

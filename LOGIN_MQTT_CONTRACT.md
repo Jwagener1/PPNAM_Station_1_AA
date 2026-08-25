@@ -1,77 +1,25 @@
-# Station 1 — Operator Login over MQTT (Android side)
+# Station 1 Login MQTT Contract — SUPERSEDED
 
-> **2026-08-25:** The normative Station 1 scanner contract is now the Windows repo's
-> `docs rev 2/Station1_MQTT_Contract_Rev_2.md` (version 3.0.0). This file remains the
-> Android-side implementation notes. Deltas the app must still adopt from 3.0.0:
-> await `scram_proof_result` (not `operator_context`) after the SCRAM proof, per the
-> Station 2 v4.1 authority; `allowedTabs` values become `tag_assignment` / `offload`
-> (was `bag_pairing`) and empty/missing means **no workflows** (fail closed); the
-> provisional `tag_scan`/`bag_pairing` messages below are superseded by the contract's
-> `tag_scan` → `tag_scan_result` and two-step `offload_scan`/`offload_confirm` flows.
+This document is superseded by **contract v3.0.0**: see
+[`docs/Station1_MQTT_Contract_v3.md`](docs/Station1_MQTT_Contract_v3.md)
+(authoritative source: `PPNAM-Station-1-App/docs rev 2/Station1_MQTT_Contract_Rev_2.md`
+in the Windows repo; shared login/session authority: Station 2 `RFID_MQTT_CONTRACT.md`,
+schema 4.1).
 
-The Android app requires an operator login at launch, mirroring PPNAM Station 2 AA's login
-(SCRAM-SHA-256 credentials or an RFID badge scan). The Station 1 Windows backend implements
-the station side of these messages as of the 2026-08-25 REV2 drop (note: its topic routing
-still needs the namespaced-topic fix tracked in contract 3.0.0 §10 before login works
-end-to-end).
+What changed for this app in 3.0.0 (all implemented as of 2026-08-25):
 
-The Android client (`AuthClient.kt`, `ScramCrypto.kt`) is a direct port of Station 2 AA's
-`ScramExchange`/`ScramCrypto`.
-
-## Topics
-
-All on Station 1's existing per-device namespace (see `MqttTopics.kt`), which follows the
-fleet-wide topic structure in `C:\Dev\Clients\PPNAM\MQTT_TOPIC_STRUCTURE.md`
-(`PPNAM/station_{n}/{deviceId}/req|res/{type}`, presence + LWT on the base nodes):
-
-| Request (`PPNAM/station_{n}/{deviceId}/req/…`) | Response (`…/{deviceId}/res/…`) |
-|---|---|
-| `scram_start_requested` | `scram_challenge` |
-| `scram_proof_requested` | `scram_proof_result` (contract 3.0.0; the shipped client still awaits `operator_context` — see banner) |
-| `login_requested` (badge) | `operator_context` |
-| `reader_logout_requested` | none required |
-
-## Payloads
-
-Every request carries Station 1's usual envelope: `ts` (ISO-8601 UTC) and `deviceId`.
-
-`deviceId` is no longer a configured number: it is derived on-device as
-`scanner_<first 12 hex of SHA-256(wifi MAC)>` (e.g. `scanner_a1b2c3d4e5f6`), falling back to
-hashing `ANDROID_ID` where Android (11+) withholds the MAC from apps. The station must treat
-device ids as opaque strings with a `scanner_` prefix, not integers. The id is shown in the
-app's Settings → Diagnostics for enrolment.
-
-`scram_start_requested`: `username`, `clientNonce`, `purpose` (`"login"`).
-
-`scram_challenge`: `challengeId`, `serverNonce` (combined nonce, must extend the client nonce),
-`salt` (base64), `iterations`, `serverFirstMessage` (verbatim `r=…,s=…,i=…`).
-
-`scram_proof_requested`: `challengeId`, `clientFinalWithoutProof`, `clientProof` (base64),
-`purpose`.
-
-`login_requested`: `badgeTag`.
-
-`operator_context`: `serverSignature` (base64 — the client verifies it before trusting the
-session; SCRAM proof responses only), `operatorSessionId`, `operatorId`, `displayName`, `role`,
-`sessionState` (`"active"`; `"closed"` is treated as a failed login), and `allowedTabs` — the
-sub-apps this operator may open. Recognised values: `"tag_assignment"`, `"bag_pairing"`.
-Omitted/empty fails OPEN (both tiles enabled), matching Station 2's display-hint semantics; the
-station must still authorise every request server-side.
-
-`reader_logout_requested`: `operatorSessionId`.
-
-## Provisional sub-app messages (final contract TBD)
-
-The stripped-down app currently publishes these fire-and-forget requests; the message set will be
-finalised together with the station side:
-
-- `req/tag_scan` — `{ ts, deviceId, operatorSessionId, tagId }` (Tag Assignment: sent
-  automatically on every RFID scan)
-- `req/bag_pairing` — `{ ts, deviceId, operatorSessionId, tagId, barcode, bagWeight, bagCount,
-  batchReference }` (Bag Pairing: sent when the operator submits a fully confirmed pairing)
-
-## Rejections
-
-A rejection is a response on the same `res/` topic with `"status": "rejected"` and a
-human-readable `reason`, e.g. `{"status":"rejected","reason":"Unknown username or password"}`.
-The client times out after 10 s if nothing answers.
+- Authentication requests use the schema 4.1 envelope (`messageId`, `schemaVersion: "4.1"`,
+  `deviceId`, six-fractional-digit `timestampUtc`); responses are correlated on
+  `inResponseToMessageId` and branched on `accepted`/`errorCode`. Envelope/routing failures
+  arrive on `res/request_rejected`.
+- The SCRAM proof response is `res/scram_proof_result` (badge login still answers
+  `res/operator_context`).
+- `allowedTabs` values are `tag_assignment` and `offload`; a missing or empty list enables
+  no workflows (fail closed).
+- Tag Assignment consumes `res/tag_scan_result` (echoing `tagId`) instead of treating the
+  PUBACK as success.
+- Bag Pairing is replaced by the two-step Offload workflow: `offload_scan` →
+  `offload_scan_result` (bagWeight/bagCount/batchReference prefill) → operator edit/confirm →
+  `offload_confirm` → `offload_confirm_result`.
+- A workflow rejection with `AUTHENTICATION_REQUIRED`/`OPERATOR_SESSION_INVALID` clears the
+  local session and returns the operator to login (§8 re-authentication).

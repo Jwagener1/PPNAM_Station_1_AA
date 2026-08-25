@@ -157,6 +157,16 @@
                         android:text="@string/section_pallet_values"
                         android:textColor="@color/primary_action" />
 
+                    <TextView
+                        android:id="@+id/tvDocumentInfo"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:textColor="@color/text_primary_dark"
+                        android:textSize="15sp"
+                        android:textStyle="bold"
+                        tools:text="PO-000123 · 5 of 12 pallets" />
+
                     <com.google.android.material.textfield.TextInputLayout
                         android:id="@+id/tilBagWeight"
                         style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"

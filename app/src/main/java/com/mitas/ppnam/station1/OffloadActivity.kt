@@ -17,14 +17,19 @@ import com.mitas.ppnam.station1.databinding.ActivityOffloadBinding
 import org.json.JSONObject
 
 /**
- * Offload (contract v3.0.0 §6), in two steps:
+ * Offload (contract v3.1.0 §6):
  *
  *  1. Scan the pallet's RFID tag and barcode, then Match Pallet -> `offload_scan`. A matched
- *     result carries the pallet's expected bagWeight/bagCount/batchReference as prefill.
+ *     result carries the pallet's expected bagWeight/bagCount/batchReference as prefill plus
+ *     the open document the pallet belongs to (documentType/documentNumber and pallet
+ *     progress) — the scanner is never locked to a document; the reference is per-pallet
+ *     metadata from this lookup.
  *  2. Review/edit the prefilled values, then Confirm Offload -> `offload_confirm` with the
- *     final typed values (unchanged values go back verbatim — they're re-read from the same
- *     fields). The station re-validates the pair at confirm time, so no client-side pairing
- *     state must survive between the two steps.
+ *     final typed values and the document reference repeated verbatim. The station
+ *     re-validates the pair at confirm time, so no client-side pairing state must survive
+ *     between the two steps.
+ *  3. After each accepted confirm: "Are you done?" — Done closes the looked-up document as
+ *     Short / Complete / Over via `offload_complete`; Next Pallet just keeps scanning.
  *
  * Value-validation rejections (INVALID_BAG_WEIGHT / INVALID_BAG_COUNT /
  * BATCH_REFERENCE_REQUIRED) keep the operator on the edit step; any other rejection returns
@@ -32,13 +37,14 @@ import org.json.JSONObject
  */
 class OffloadActivity : AppCompatActivity() {
 
-    private enum class Step { SCAN, MATCHING, EDIT, CONFIRMING }
+    private enum class Step { SCAN, MATCHING, EDIT, CONFIRMING, CLOSING }
 
     private lateinit var binding: ActivityOffloadBinding
     private lateinit var workflow: WorkflowClient
     private var step = Step.SCAN
     private var matchedTag = ""
     private var matchedBarcode = ""
+    private var currentDocument: OffloadDocument? = null
 
     private val editStepErrors = setOf("INVALID_BAG_WEIGHT", "INVALID_BAG_COUNT", "BATCH_REFERENCE_REQUIRED")
 
@@ -109,6 +115,7 @@ class OffloadActivity : AppCompatActivity() {
 
     private fun enterScanStep(clearScan: Boolean) {
         step = Step.SCAN
+        currentDocument = null
         binding.cardValues.visibility = View.GONE
         binding.tvConfirmStatus.visibility = View.GONE
         binding.tvScanStatus.visibility = View.GONE
@@ -121,13 +128,23 @@ class OffloadActivity : AppCompatActivity() {
         updateMatchEnabled()
     }
 
-    private fun enterEditStep(tagId: String, barcode: String, prefill: OffloadPrefill) {
+    private fun enterEditStep(
+        tagId: String,
+        barcode: String,
+        prefill: OffloadPrefill,
+        document: OffloadDocument,
+    ) {
         step = Step.EDIT
         matchedTag = tagId
         matchedBarcode = barcode
+        currentDocument = document
         binding.tvScanStatus.visibility = View.GONE
         binding.cardValues.visibility = View.VISIBLE
         binding.tvConfirmStatus.visibility = View.GONE
+        binding.tvDocumentInfo.text = getString(
+            R.string.label_document_progress,
+            document.documentNumber, document.palletsScanned, document.palletsExpected,
+        )
         binding.etBagWeight.setText(WorkflowMessages.formatWeight(prefill.bagWeight))
         binding.etBagCount.setText(prefill.bagCount.toString())
         binding.etBatchRef.setText(prefill.batchReference)
@@ -170,10 +187,12 @@ class OffloadActivity : AppCompatActivity() {
                 .onSuccess { json ->
                     if (json.optBoolean("matched", false)) {
                         val prefill = OffloadPrefill.fromScanResult(json)
-                        if (prefill != null) {
-                            enterEditStep(tagId, barcode, prefill)
+                        val document = OffloadDocument.fromScanResult(json)
+                        if (prefill != null && document != null) {
+                            enterEditStep(tagId, barcode, prefill, document)
                         } else {
-                            // "matched" without usable prefill breaks §6.1 — treat as no match.
+                            // "matched" without usable prefill or document breaks §6.1/§6.2 —
+                            // treat as no match.
                             backToScanWithError(getString(R.string.error_incomplete_match))
                         }
                     } else {
@@ -194,6 +213,8 @@ class OffloadActivity : AppCompatActivity() {
 
     private fun confirmOffload() {
         if (step != Step.EDIT) return
+        val document = currentDocument
+            ?: return backToScanWithError(getString(R.string.error_incomplete_match))
         val weight = OffloadInput.parseWeight(binding.etBagWeight.text.toString())
             ?: return showConfirmStatus(getString(R.string.error_invalid_weight), R.color.danger)
         val count = OffloadInput.parseCount(binding.etBagCount.text.toString())
@@ -210,6 +231,8 @@ class OffloadActivity : AppCompatActivity() {
             operatorSessionId = OperatorSessionHolder.currentSessionIdOrEmpty(),
             tagId = matchedTag,
             barcode = matchedBarcode,
+            documentType = document.documentType,
+            documentNumber = document.documentNumber,
             bagWeight = weight,
             bagCount = count,
             batchReference = batch,
@@ -225,8 +248,11 @@ class OffloadActivity : AppCompatActivity() {
                 .onSuccess { json ->
                     when {
                         json.optBoolean("accepted", false) -> {
+                            val scanned = json.optInt("palletsScanned", -1)
+                            val expected = json.optInt("palletsExpected", -1)
                             enterScanStep(clearScan = true)
                             showScanStatus(getString(R.string.msg_offload_recorded), R.color.success)
+                            showDonePrompt(document, scanned, expected)
                         }
                         json.optString("errorCode", "") in editStepErrors -> {
                             step = Step.EDIT
@@ -243,6 +269,80 @@ class OffloadActivity : AppCompatActivity() {
                     step = Step.EDIT
                     binding.btnConfirmOffload.isEnabled = true
                     showConfirmStatus(failureText(e), R.color.danger)
+                }
+        }
+    }
+
+    // ---- step 3: "Are you done?" and offload_complete ----------------------------------------
+
+    /** §6.4: after every accepted confirm the operator may close the looked-up document. */
+    private fun showDonePrompt(document: OffloadDocument, scanned: Int, expected: Int) {
+        val message =
+            if (scanned >= 0 && expected >= 0) {
+                getString(R.string.dialog_done_message, scanned, expected, document.documentNumber)
+            } else {
+                getString(R.string.dialog_done_message_no_progress, document.documentNumber)
+            }
+        androidx.appcompat.app.AlertDialog.Builder(this, R.style.AppAlertDialogTheme)
+            .setTitle(getString(R.string.dialog_done_title))
+            .setMessage(message)
+            .setPositiveButton(getString(R.string.btn_done)) { _, _ -> showClosePrompt(document) }
+            .setNegativeButton(getString(R.string.btn_next_pallet), null)
+            .show()
+    }
+
+    private fun showClosePrompt(document: OffloadDocument) {
+        val labels = arrayOf(
+            getString(R.string.status_label_short),
+            getString(R.string.status_label_complete),
+            getString(R.string.status_label_over),
+        )
+        val wireValues = arrayOf(OffloadStatus.SHORT, OffloadStatus.COMPLETE, OffloadStatus.OVER)
+        androidx.appcompat.app.AlertDialog.Builder(this, R.style.AppAlertDialogTheme)
+            .setTitle(getString(R.string.dialog_close_title, document.documentNumber))
+            .setItems(labels) { _, which -> sendCompletion(document, wireValues[which], labels[which]) }
+            .setNegativeButton(getString(R.string.btn_cancel), null)
+            .show()
+    }
+
+    private fun sendCompletion(document: OffloadDocument, status: String, statusLabel: String) {
+        step = Step.CLOSING
+        updateMatchEnabled()
+        showScanStatus(getString(R.string.status_sending), R.color.text_muted)
+
+        val payload = WorkflowMessages.offloadComplete(
+            deviceId = DeviceIdentity.deviceId(this),
+            operatorSessionId = OperatorSessionHolder.currentSessionIdOrEmpty(),
+            documentType = document.documentType,
+            documentNumber = document.documentNumber,
+            status = status,
+        )
+        workflow.request(
+            requestType = "offload_complete",
+            responseType = "offload_complete_result",
+            payload = payload,
+            matches = { it.optString("status") == status },
+        ) { result ->
+            if (step != Step.CLOSING) return@request
+            step = Step.SCAN
+            updateMatchEnabled()
+            result
+                .onSuccess { json ->
+                    if (json.optBoolean("accepted", false)) {
+                        showScanStatus(
+                            getString(R.string.msg_document_closed, document.documentNumber, statusLabel),
+                            R.color.success,
+                        )
+                    } else {
+                        if (handleSessionRejection(json)) return@request
+                        showScanStatus(stationReason(json), R.color.danger)
+                        // Let the operator retry the closure (or cancel back to scanning).
+                        showClosePrompt(document)
+                    }
+                }
+                .onFailure { e ->
+                    showScanStatus(failureText(e), R.color.danger)
+                    showClosePrompt(document)
                 }
         }
     }

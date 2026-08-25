@@ -33,6 +33,17 @@
     <string name="btn_confirm_offload">Confirm Offload</string>
     <string name="btn_back_to_scan">Back to Scan</string>
     <string name="msg_offload_recorded">Offload recorded</string>
+    <string name="label_document_progress">%1$s · %2$d of %3$d pallets</string>
+    <string name="dialog_done_title">Pallet recorded</string>
+    <string name="dialog_done_message">%1$d of %2$d pallets offloaded against %3$s.\n\nAre you done with this document?</string>
+    <string name="dialog_done_message_no_progress">Are you done with %1$s?</string>
+    <string name="btn_done">Done</string>
+    <string name="btn_next_pallet">Next Pallet</string>
+    <string name="dialog_close_title">Close %1$s as…</string>
+    <string name="status_label_short">Short</string>
+    <string name="status_label_complete">Complete</string>
+    <string name="status_label_over">Over</string>
+    <string name="msg_document_closed">%1$s closed — %2$s</string>
     <string name="error_incomplete_match">Station sent an incomplete match — try again</string>
     <string name="error_invalid_weight">Enter a bag weight greater than 0</string>
     <string name="error_invalid_count">Enter a whole number of bags greater than 0</string>

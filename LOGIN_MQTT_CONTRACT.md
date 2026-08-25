@@ -23,3 +23,9 @@ What changed for this app in 3.0.0 (all implemented as of 2026-08-25):
   `offload_confirm` → `offload_confirm_result`.
 - A workflow rejection with `AUTHENTICATION_REQUIRED`/`OPERATOR_SESSION_INVALID` clears the
   local session and returns the operator to login (§8 re-authentication).
+- *(3.1.0)* Every matched `offload_scan_result` carries four flat document fields
+  (`documentType`, `documentNumber`, `palletsScanned`, `palletsExpected`) resolved from the
+  tag+barcode lookup — never scanner-side state. The scanner repeats the reference on that
+  pallet's `offload_confirm` (whose accepted result returns post-commit progress) and, via
+  the "Are you done?" prompt, on `offload_complete` with `status: short/complete/over` to
+  close the document (§6.4).

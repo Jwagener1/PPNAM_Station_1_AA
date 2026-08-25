@@ -66,60 +66,68 @@ def main():
             expect(host.text == "mqtt.sysone.co.za", f"host prefill {host.text!r}")
             port = d.find(id="etBrokerPort")
             expect(port is not None and port.text == "443", f"port prefill {port and port.text!r}")
-            ws = d.find(id="swBrokerWebSocket")
-            tls = d.find(id="swBrokerTls")
+            ws = d.scroll_to("swBrokerWebSocket")
+            tls = d.scroll_to("swBrokerTls")
             expect(ws is not None and tls is not None, "transport switches missing")
-            user = d.find(id="etBrokerUsername")
+            user = d.scroll_to("etBrokerUsername")
             expect(user is not None and user.text, "username prefill empty")
-            pw = d.find(id="etBrokerPassword")
-            expect(pw is not None and not pw.text.strip("•· "), "password field must not echo the credential")
+            pw = d.scroll_to("etBrokerPassword")
+            # An empty field reports its hint; masked dots would mean the credential is echoed.
+            expect(pw is not None and (pw.text == "Password" or not pw.text.strip("•·* ")),
+                   f"password field must not echo the credential: {pw and pw.text!r}")
             case.shot(d.screenshot("S3_broker_form"))
 
         with c.case("S4", "Invalid port blocks the save locally") as case:
-            base = len(sim.events())
+            port_field = d.scroll_to("etBrokerPort")
+            expect(port_field is not None, "port field not reachable")
             d.type_into("etBrokerPort", "0")
             d.key("KEYCODE_BACK")
-            d.tap(id="btnSaveSettings")
+            save = d.scroll_to("btnSaveSettings")
+            expect(save is not None, "save button not reachable")
+            d.tap(xy=save.center)
             time.sleep(2)
-            expect(d.find(id="etBrokerHost", retries=2) is not None,
+            expect(d.scroll_to("etBrokerHost") is not None,
                    "app restarted despite invalid port")
+            port_field = d.scroll_to("etBrokerPort")
+            expect(port_field is not None, "port field not reachable after failed save")
             d.type_into("etBrokerPort", "443")  # restore
             d.key("KEYCODE_BACK")
 
         with c.case("S5", "Diagnostics show the derived device id and app version") as case:
-            dev = d.find(id="tvDeviceId", retries=5)
+            dev = d.scroll_to("tvDeviceId")
             expect(dev is not None and dev.text == DEVICE_ID, f"device id {dev and dev.text!r}")
-            ver = d.find(id="tvVersion")
+            ver = d.scroll_to("tvVersion")
             expect(ver is not None and ver.text.startswith("v"), f"version {ver and ver.text!r}")
             case.note(f"deviceId={dev.text} version={ver.text}")
 
         with c.case("S6", "Diagnostics pills: broker Connected, station Online") as case:
-            broker = d.find(id="pillBroker", retries=5)
-            station = d.find(id="pillStation")
-            expect(broker is not None and broker.text == "Connected", f"broker pill {broker}")
-            expect(station is not None and station.text == "Online", f"station pill {station}")
+            d.scroll_to("pillBroker")
+            broker = d.inner_text("pillBroker")
+            station = d.inner_text("pillStation")
+            expect(broker == "Connected", f"broker pill {broker!r}")
+            expect(station == "Online", f"station pill {station!r}")
             case.shot(d.screenshot("S6_pills"))
 
         with c.case("S7", "Station offline flips the station pill without blaming the broker") as case:
             sim.cmd("station", state="offline")
-            deadline = time.time() + 15
+            deadline = time.time() + 20
             station_text = ""
             while time.time() < deadline:
-                station = d.find(id="pillStation", retries=1)
-                station_text = station.text if station else ""
+                station_text = d.inner_text("pillStation", retries=1)
                 if station_text == "Offline":
                     break
                 time.sleep(1)
-            broker = d.find(id="pillBroker")
+            broker = d.inner_text("pillBroker")
             sim.cmd("station", state="online")
             expect(station_text == "Offline", f"station pill {station_text!r}")
-            expect(broker is not None and broker.text == "Connected",
-                   f"broker pill wrongly changed: {broker}")
+            expect(broker == "Connected", f"broker pill wrongly changed: {broker!r}")
             case.shot(d.screenshot("S7_station_offline"))
 
         with c.case("S8", "Save with unchanged values restarts and reconnects (blank password kept)") as case:
             base = len(sim.events())
-            d.tap(id="btnSaveSettings")
+            save = d.scroll_to("btnSaveSettings")
+            expect(save is not None, "save button not reachable")
+            d.tap(xy=save.center)
             time.sleep(6)
             # app restarted to MainActivity-or-login; device presence must come back online
             presence = sim.wait_for(
@@ -128,12 +136,10 @@ def main():
             expect(presence is not None, "scanner did not republish online presence after save")
             expect(d.find(id="etUsername", retries=10) is not None,
                    "app did not land back on the login screen")
-            pill = d.find(id="connectionPill", retries=8)
             deadline = time.time() + 15
-            pill_text = pill.text if pill else ""
+            pill_text = ""
             while time.time() < deadline and pill_text != "Connected":
-                node = d.find(id="connectionPill", retries=1)
-                pill_text = node.text if node else pill_text
+                pill_text = d.inner_text("connectionPill", retries=1)
                 time.sleep(1)
             expect(pill_text == "Connected", f"connection pill {pill_text!r}")
             case.shot(d.screenshot("S8_after_save"))

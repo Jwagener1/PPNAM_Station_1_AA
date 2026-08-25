@@ -31,8 +31,7 @@ def login_to_main(sim):
 
 
 def pill_text() -> str:
-    node = d.find(id="connectionPill", retries=1)
-    return node.text if node else ""
+    return d.inner_text("connectionPill", retries=1)
 
 
 def wait_pill(want: str, timeout=30) -> str:

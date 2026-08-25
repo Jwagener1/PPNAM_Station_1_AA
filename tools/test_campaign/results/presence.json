@@ -1,0 +1,40 @@
+{
+ "campaign": "presence",
+ "ranAt": "2026-08-25T14:43:58Z",
+ "durationS": 73.1,
+ "results": [
+  {
+   "id": "P1",
+   "description": "Station offline shows the blocking overlay on Main; online clears it",
+   "verdict": "PASS",
+   "detail": "",
+   "notes": [],
+   "shots": [
+    "C:\\Dev\\Clients\\PPNAM\\Andriod\\PPNAM_Station_1_AA\\tools\\test_campaign\\shots\\P1_station_offline.png"
+   ]
+  },
+  {
+   "id": "P2",
+   "description": "Network drop fires the Last Will; reconnect republishes online presence",
+   "verdict": "PASS",
+   "detail": "",
+   "notes": [
+    "LWT offline observed",
+    "pill during outage: 'Reconnecting'"
+   ],
+   "shots": [
+    "C:\\Dev\\Clients\\PPNAM\\Andriod\\PPNAM_Station_1_AA\\tools\\test_campaign\\shots\\P2_reconnected.png"
+   ]
+  },
+  {
+   "id": "P3",
+   "description": "Workflows still work after the reconnect (fresh session)",
+   "verdict": "PASS",
+   "detail": "",
+   "notes": [],
+   "shots": [
+    "C:\\Dev\\Clients\\PPNAM\\Andriod\\PPNAM_Station_1_AA\\tools\\test_campaign\\shots\\P3_scan_after_reconnect.png"
+   ]
+  }
+ ]
+}

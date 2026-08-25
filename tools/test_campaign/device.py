@@ -115,6 +115,22 @@ class Device:
             node = self.find(id=id, retries=1)
         return node
 
+    def inner_text(self, id: str, retries: int = 3) -> str:
+        """Text of a compound view: joins the text of every node inside its bounds
+        (custom pill views expose their label on a child, not the container)."""
+        for _ in range(retries):
+            nodes = self.ui()
+            container = next((n for n in nodes if n.resource_id.endswith(f"id/{id}")), None)
+            if container is not None:
+                x1, y1, x2, y2 = container.bounds
+                texts = [n.text for n in nodes if n.text
+                         and n.bounds[0] >= x1 and n.bounds[1] >= y1
+                         and n.bounds[2] <= x2 and n.bounds[3] <= y2]
+                if texts:
+                    return " ".join(texts)
+            time.sleep(0.8)
+        return ""
+
     def wait_field(self, id: str, predicate, timeout: float = 10.0):
         """Waits until the node exists and predicate(text) is true; returns last text."""
         deadline = time.time() + timeout

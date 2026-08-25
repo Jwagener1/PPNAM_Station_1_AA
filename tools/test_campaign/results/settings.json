@@ -1,0 +1,87 @@
+{
+ "campaign": "settings",
+ "ranAt": "2026-08-25T14:40:07Z",
+ "durationS": 226.8,
+ "results": [
+  {
+   "id": "S1",
+   "description": "Wrong PIN shows the attempts-left error and keeps the gate",
+   "verdict": "PASS",
+   "detail": "",
+   "notes": [
+    "error: 'Incorrect PIN. 4 attempts left before lockout.'"
+   ],
+   "shots": [
+    "C:\\Dev\\Clients\\PPNAM\\Andriod\\PPNAM_Station_1_AA\\tools\\test_campaign\\shots\\S1_wrong_pin.png"
+   ]
+  },
+  {
+   "id": "S2",
+   "description": "Five wrong PINs trigger the 30s lockout",
+   "verdict": "PASS",
+   "detail": "",
+   "notes": [
+    "lockout: 'Too many attempts. Try again in 30s.'"
+   ],
+   "shots": []
+  },
+  {
+   "id": "S3",
+   "description": "Correct PIN reveals the broker form prefilled with current settings",
+   "verdict": "PASS",
+   "detail": "",
+   "notes": [],
+   "shots": [
+    "C:\\Dev\\Clients\\PPNAM\\Andriod\\PPNAM_Station_1_AA\\tools\\test_campaign\\shots\\S3_broker_form.png"
+   ]
+  },
+  {
+   "id": "S4",
+   "description": "Invalid port blocks the save locally",
+   "verdict": "PASS",
+   "detail": "",
+   "notes": [],
+   "shots": []
+  },
+  {
+   "id": "S5",
+   "description": "Diagnostics show the derived device id and app version",
+   "verdict": "PASS",
+   "detail": "",
+   "notes": [
+    "deviceId=scanner_5c64df8d86a8 version=v1.0 (1)"
+   ],
+   "shots": []
+  },
+  {
+   "id": "S6",
+   "description": "Diagnostics pills: broker Connected, station Online",
+   "verdict": "PASS",
+   "detail": "",
+   "notes": [],
+   "shots": [
+    "C:\\Dev\\Clients\\PPNAM\\Andriod\\PPNAM_Station_1_AA\\tools\\test_campaign\\shots\\S6_pills.png"
+   ]
+  },
+  {
+   "id": "S7",
+   "description": "Station offline flips the station pill without blaming the broker",
+   "verdict": "PASS",
+   "detail": "",
+   "notes": [],
+   "shots": [
+    "C:\\Dev\\Clients\\PPNAM\\Andriod\\PPNAM_Station_1_AA\\tools\\test_campaign\\shots\\S7_station_offline.png"
+   ]
+  },
+  {
+   "id": "S8",
+   "description": "Save with unchanged values restarts and reconnects (blank password kept)",
+   "verdict": "PASS",
+   "detail": "",
+   "notes": [],
+   "shots": [
+    "C:\\Dev\\Clients\\PPNAM\\Andriod\\PPNAM_Station_1_AA\\tools\\test_campaign\\shots\\S8_after_save.png"
+   ]
+  }
+ ]
+}

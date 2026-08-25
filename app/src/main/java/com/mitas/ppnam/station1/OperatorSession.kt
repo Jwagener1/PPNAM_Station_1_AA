@@ -3,12 +3,12 @@ package com.mitas.ppnam.station1
 import java.util.concurrent.CopyOnWriteArrayList
 
 /**
- * The two sub-apps this handheld offers. Wire values follow Station 2's snake_case vocabulary —
- * the login's `operator_context` lists what this operator may open in `allowedTabs`.
+ * The two workflows this handheld offers (contract v3.0.0 §3). Wire values arrive in the
+ * login response's `allowedTabs`.
  */
 object StationTab {
     const val TAG_ASSIGNMENT = "tag_assignment"
-    const val BAG_PAIRING = "bag_pairing"
+    const val OFFLOAD = "offload"
 }
 
 /**
@@ -27,13 +27,13 @@ data class OperatorSession(
     val allowedTabs: List<String> = emptyList(),
 ) {
     /**
-     * Whether to OFFER [tab] in the UI. Presentation only — never authorisation.
+     * Whether to OFFER [tab] in the UI. Presentation only — the station re-checks every
+     * request server-side (ACTION_NOT_ALLOWED).
      *
-     * Fails OPEN on an empty list, like Station 2: a session that arrived without the hint must
-     * render the full UI and let the station reject, rather than silently hiding sub-apps the
-     * operator is entitled to.
+     * Fails CLOSED (contract v3.0.0 §3): a login that arrived without allowedTabs, or with an
+     * empty list, enables no workflows at all.
      */
-    fun canShow(tab: String): Boolean = allowedTabs.isEmpty() || tab in allowedTabs
+    fun canShow(tab: String): Boolean = tab in allowedTabs
 }
 
 /**

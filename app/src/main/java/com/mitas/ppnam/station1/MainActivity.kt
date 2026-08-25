@@ -88,11 +88,11 @@ class MainActivity : AppCompatActivity() {
         }
         binding.layoutOperator.setOnClickListener { showLogoutDialog() }
 
-        // The login's operator_context decides which sub-apps this operator gets (allowedTabs,
-        // fail-open on an empty list — display hint only, the station re-checks server-side).
+        // The login response decides which sub-apps this operator gets (allowedTabs, fail-closed
+        // on a missing/empty list — display gating only, the station re-checks server-side).
         val session = OperatorSessionHolder.session
         setTileEnabled(binding.tileTagAssignment, session?.canShow(StationTab.TAG_ASSIGNMENT) ?: false)
-        setTileEnabled(binding.tileBagPairing, session?.canShow(StationTab.BAG_PAIRING) ?: false)
+        setTileEnabled(binding.tileBagPairing, session?.canShow(StationTab.OFFLOAD) ?: false)
 
         binding.tileTagAssignment.applyPressScaleFeedback()
         binding.tileBagPairing.applyPressScaleFeedback()

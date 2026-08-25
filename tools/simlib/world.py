@@ -165,7 +165,12 @@ class World:
 
     # ================================================================ auth
     def handle_auth(self, req: ParsedRequest):
-        """Returns (response_suffix, payload). Envelope is already validated."""
+        """Returns (response_suffix, payload), or None when the request is swallowed
+        (forced timeout). Envelope is already validated. A swallowed request never
+        enters the replay store — the client's retry executes fresh."""
+        if req.request_type in self._swallow_next:
+            self._swallow_next.discard(req.request_type)
+            return None
         suffix = AUTH_RESPONSE_SUFFIX[req.request_type]
         key = (req.device_id, req.request_type, req.message_id)
         body_hash = hashlib.sha256(req.raw_body).hexdigest()

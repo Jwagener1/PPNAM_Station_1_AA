@@ -143,7 +143,11 @@ class StationSim:
             self._reject(device_id, body if isinstance(body, dict) else {}, err)
             return
         with self.lock:
-            suffix, response = self.world.handle_auth(parsed)
+            result = self.world.handle_auth(parsed)
+        if result is None:
+            print(f"[sim] swallowed {parsed.request_type} (forced timeout)")
+            return
+        suffix, response = result
         self._publish_response(device_id, suffix, response)
 
     def _handle_workflow(self, device_id: str, request_type: str, payload) -> None:

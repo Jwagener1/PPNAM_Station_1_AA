@@ -431,6 +431,24 @@ def test_swallow_next_produces_no_response(world, clock):
     assert after["accepted"]
 
 
+def test_swallow_next_covers_auth_requests_too(world, clock):
+    world.swallow_next("scram_start_requested")
+    payload = {
+        "messageId": "start-sw", "schemaVersion": "4.1", "deviceId": DEVICE,
+        "timestampUtc": _now_iso(clock),
+        "username": "op.both", "clientNonce": "nonce-sw", "purpose": "login",
+    }
+    topic = f"PPNAM/station_1/{DEVICE}/req/scram_start_requested"
+    now = datetime.fromtimestamp(clock["now"], tz=timezone.utc)
+    parsed, err = validate_auth_request(topic, json.dumps(payload), now=now)
+    assert err is None
+    assert world.handle_auth(parsed) is None
+    # A swallowed request must not enter the replay store: the retry executes fresh.
+    suffix, retry = world.handle_auth(parsed)
+    assert suffix == "scram_challenge"
+    assert retry["accepted"]
+
+
 def test_expire_sessions_command(world, clock):
     session = login(world, clock)["operatorSessionId"]
     world.expire_sessions()

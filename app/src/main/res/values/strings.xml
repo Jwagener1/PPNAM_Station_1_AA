@@ -19,7 +19,7 @@
     <string name="auto_send_tip">Tag will be sent automatically after scan.</string>
     <string name="label_last_scanned">Last Scanned</string>
     <string name="status_no_tag">No tag scanned yet</string>
-    <string name="tx_status_sent">SENT</string>
+    <string name="status_tag_assigned">Tag assigned</string>
 
     <!-- Bag Pairing -->
     <string name="section_scan">Scan</string>
@@ -38,6 +38,7 @@
     <!-- Shared send states -->
     <string name="status_sending">Sending…</string>
     <string name="status_send_failed">Failed to send — check connection</string>
+    <string name="status_no_response">No response from station — try again</string>
 
     <!-- Login / session -->
     <string name="title_log_in">Log In</string>

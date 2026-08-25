@@ -13,19 +13,18 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import com.mitas.ppnam.station1.databinding.ActivityTagAssignmentBinding
-import org.json.JSONObject
-import java.time.Instant
 
 /**
- * Tag Assignment, stripped down: scan an RFID tag and its information is sent to the station
- * automatically. No document context, no product selection — the station decides what the tag
- * means.
+ * Tag Assignment (contract v3.0.0 §5): every scanned RFID tag is sent automatically as
+ * `tag_scan`; the station decides what the tag means and answers `tag_scan_result` echoing the
+ * tagId. The UI stays pending until that result (or the 10-second timeout) — a PUBACK is
+ * transport-only and never shown as success.
  */
 class TagAssignmentActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityTagAssignmentBinding
-    private var stationInt = 1
-    private var lastSentTag: String? = null
+    private lateinit var workflow: WorkflowClient
+    private var lastScannedTag: String? = null
 
     private val connectionStatusListener: (ConnectionStatus) -> Unit = { status ->
         runOnUiThread { binding.connectionPill.setStatus(status) }
@@ -47,8 +46,8 @@ class TagAssignmentActivity : AppCompatActivity() {
         setContentView(binding.root)
         forceLightStatusBarIcons()
 
-        loadSettings()
         setupToolbar()
+        workflow = WorkflowClient(this)
         MqttManager.getInstance(this).addConnectionStatusListener(connectionStatusListener)
 
         ViewCompat.setOnApplyWindowInsetsListener(binding.main) { v, insets ->
@@ -60,11 +59,6 @@ class TagAssignmentActivity : AppCompatActivity() {
         onBackPressedDispatcher.addCallback(this) { finishBackward() }
     }
 
-    private fun loadSettings() {
-        val prefs = getSharedPreferences("settings", MODE_PRIVATE)
-        stationInt = prefs.getInt("station_int", 1)
-    }
-
     private fun setupToolbar() {
         setSupportActionBar(binding.toolbar)
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
@@ -73,40 +67,67 @@ class TagAssignmentActivity : AppCompatActivity() {
 
     private fun onTagScanned(tagId: String) {
         runOnUiThread {
+            lastScannedTag = tagId
             binding.tvLastTag.text = tagId
-            binding.tvSendStatus.visibility = android.view.View.VISIBLE
-            binding.tvSendStatus.text = getString(R.string.status_sending)
-            binding.tvSendStatus.setTextColor(getColor(R.color.text_muted))
+            showStatus(getString(R.string.status_sending), R.color.text_muted)
         }
         sendTag(tagId)
     }
 
-    /**
-     * Provisional wire shape — the final MQTT message set for the stripped-down app is still to
-     * be agreed with the station side. Payload follows the app's usual envelope (`ts`,
-     * `deviceId`), plus the operator's session for attribution.
-     */
     private fun sendTag(tagId: String) {
-        val deviceId = DeviceIdentity.deviceId(this)
-        val payload = JSONObject().apply {
-            put("ts", Instant.now().toString())
-            put("deviceId", deviceId)
-            put("operatorSessionId", OperatorSessionHolder.currentSessionIdOrEmpty())
-            put("tagId", tagId)
-        }
-        val topic = MqttTopics.deviceRequest(stationInt, deviceId, "tag_scan")
-        MqttManager.getInstance(this).publish(topic, payload.toString()) { throwable ->
-            runOnUiThread {
-                if (throwable != null) {
-                    binding.tvSendStatus.text = getString(R.string.status_send_failed)
-                    binding.tvSendStatus.setTextColor(getColor(R.color.danger))
-                } else {
-                    lastSentTag = tagId
-                    binding.tvSendStatus.text = getString(R.string.tx_status_sent)
-                    binding.tvSendStatus.setTextColor(getColor(R.color.success))
+        val payload = WorkflowMessages.tagScan(
+            deviceId = DeviceIdentity.deviceId(this),
+            operatorSessionId = OperatorSessionHolder.currentSessionIdOrEmpty(),
+            tagId = tagId,
+        )
+        workflow.request(
+            requestType = "tag_scan",
+            responseType = "tag_scan_result",
+            payload = payload,
+            matches = { it.optString("tagId") == tagId },
+        ) { result ->
+            // A newer scan owns the status line by now — its own result will drive the UI.
+            if (tagId != lastScannedTag) return@request
+            result
+                .onSuccess { json ->
+                    if (json.optBoolean("accepted", false)) {
+                        showStatus(
+                            json.optString("reason", "").ifBlank { getString(R.string.status_tag_assigned) },
+                            R.color.success,
+                        )
+                    } else {
+                        if (handleSessionRejection(json)) return@request
+                        showStatus(stationReason(json), R.color.danger)
+                    }
                 }
-            }
+                .onFailure { e ->
+                    val message = if (e is WorkflowTimeout) getString(R.string.status_no_response)
+                    else getString(R.string.status_send_failed)
+                    showStatus(message, R.color.danger)
+                }
         }
+    }
+
+    private fun stationReason(json: org.json.JSONObject): String =
+        json.optString("reason", "").ifBlank {
+            json.optString("errorCode", "").ifBlank { getString(R.string.status_send_failed) }
+        }
+
+    /** §8: a closed/expired session sends the operator back to login, not into a dead end. */
+    private fun handleSessionRejection(json: org.json.JSONObject): Boolean {
+        if (!WorkflowClient.isSessionRejection(json)) return false
+        OperatorSessionHolder.clear()
+        startActivity(Intent(this, LoginActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+        })
+        finish()
+        return true
+    }
+
+    private fun showStatus(message: String, colorRes: Int) {
+        binding.tvSendStatus.visibility = android.view.View.VISIBLE
+        binding.tvSendStatus.text = message
+        binding.tvSendStatus.setTextColor(getColor(colorRes))
     }
 
     override fun onResume() {

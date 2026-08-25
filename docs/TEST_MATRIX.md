@@ -5,7 +5,7 @@ physical Chainway C72 (`HC720DE260100322`), driven over adb with scans injected
 as scanner broadcasts. Simulator itself verified by 74 pytest cases and a
 17-check live protocol run (`tools/test_campaign/fake_scanner.py`).
 
-**Overall: 41/41 passed** — generated 2026-08-25 14:50 UTC
+**Overall: 41/41 passed** — generated 2026-08-25 15:26 UTC
 
 ## Login & Session (contract §4) — 10/10
 

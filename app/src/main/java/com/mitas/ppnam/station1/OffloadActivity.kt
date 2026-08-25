@@ -279,7 +279,11 @@ class OffloadActivity : AppCompatActivity() {
 
     // ---- step 3: "Are you done?" and offload_complete ----------------------------------------
 
-    /** §6.4: after every accepted confirm the operator may close the looked-up document. */
+    /**
+     * §6.4: after every accepted confirm the operator may close the looked-up document.
+     * Custom view: the two choices carry distinct colors (continue = blue, done = green)
+     * instead of the theme's identical dialog buttons.
+     */
     private fun showDonePrompt(document: OffloadDocument, scanned: Int, expected: Int) {
         val message =
             if (scanned >= 0 && expected >= 0) {
@@ -287,26 +291,43 @@ class OffloadActivity : AppCompatActivity() {
             } else {
                 getString(R.string.dialog_done_message_no_progress, document.documentNumber)
             }
-        androidx.appcompat.app.AlertDialog.Builder(this, R.style.AppAlertDialogTheme)
+        val view = com.mitas.ppnam.station1.databinding.DialogOffloadDoneBinding
+            .inflate(layoutInflater)
+        view.tvDoneMessage.text = message
+        val dialog = androidx.appcompat.app.AlertDialog.Builder(this, R.style.AppAlertDialogTheme)
             .setTitle(getString(R.string.dialog_done_title))
-            .setMessage(message)
-            .setPositiveButton(getString(R.string.btn_done)) { _, _ -> showClosePrompt(document) }
-            .setNegativeButton(getString(R.string.btn_next_pallet), null)
+            .setView(view.root)
             .show()
+        view.btnNextPallet.setOnClickListener { dialog.dismiss() }
+        view.btnDoneClose.setOnClickListener {
+            dialog.dismiss()
+            showClosePrompt(document)
+        }
+        view.btnNextPallet.applyPressScaleFeedback()
+        view.btnDoneClose.applyPressScaleFeedback()
     }
 
+    /** Short = amber, Complete = green, Over = red — the classification is color-coded. */
     private fun showClosePrompt(document: OffloadDocument) {
-        val labels = arrayOf(
-            getString(R.string.status_label_short),
-            getString(R.string.status_label_complete),
-            getString(R.string.status_label_over),
-        )
-        val wireValues = arrayOf(OffloadStatus.SHORT, OffloadStatus.COMPLETE, OffloadStatus.OVER)
-        androidx.appcompat.app.AlertDialog.Builder(this, R.style.AppAlertDialogTheme)
+        val view = com.mitas.ppnam.station1.databinding.DialogOffloadCloseBinding
+            .inflate(layoutInflater)
+        val dialog = androidx.appcompat.app.AlertDialog.Builder(this, R.style.AppAlertDialogTheme)
             .setTitle(getString(R.string.dialog_close_title, document.documentNumber))
-            .setItems(labels) { _, which -> sendCompletion(document, wireValues[which], labels[which]) }
+            .setView(view.root)
             .setNegativeButton(getString(R.string.btn_cancel), null)
             .show()
+        val choices = listOf(
+            view.btnCloseShort to OffloadStatus.SHORT,
+            view.btnCloseComplete to OffloadStatus.COMPLETE,
+            view.btnCloseOver to OffloadStatus.OVER,
+        )
+        for ((button, wireValue) in choices) {
+            button.setOnClickListener {
+                dialog.dismiss()
+                sendCompletion(document, wireValue, button.text.toString())
+            }
+            button.applyPressScaleFeedback()
+        }
     }
 
     private fun sendCompletion(document: OffloadDocument, status: String, statusLabel: String) {

@@ -18,7 +18,7 @@
             android:layout_width="match_parent"
             android:layout_height="?attr/actionBarSize"
             android:background="@color/card_background"
-            app:title="@string/tab_bag_pairing"
+            app:title="@string/tab_offload"
             app:titleTextAppearance="@style/TextAppearance.SysOneScanner.ToolbarTitle">
 
             <com.mitas.ppnam.station1.ConnectionPillView
@@ -46,7 +46,7 @@
             android:orientation="vertical"
             android:padding="16dp">
 
-            <!-- Scanned identifiers -->
+            <!-- Step 1: scan the pallet's tag and barcode, then ask the station to match them -->
             <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -106,19 +106,43 @@
                             android:maxLines="1"
                             android:textColor="@color/text_primary_dark" />
                     </com.google.android.material.textfield.TextInputLayout>
+
+                    <TextView
+                        android:id="@+id/tvScanStatus"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:textColor="@color/text_muted"
+                        android:textSize="15sp"
+                        android:visibility="gone"
+                        tools:text="Tag and barcode match"
+                        tools:visibility="visible" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnMatchPallet"
+                        android:layout_width="match_parent"
+                        android:layout_height="56dp"
+                        android:layout_marginTop="12dp"
+                        android:enabled="false"
+                        android:text="@string/btn_match_pallet"
+                        app:backgroundTint="@color/primary_action"
+                        app:cornerRadius="14dp" />
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
-            <!-- Bag details, each locked in with its own Confirm -->
+            <!-- Step 2: station prefill, editable, confirmed as one unit -->
             <com.google.android.material.card.MaterialCardView
+                android:id="@+id/cardValues"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="16dp"
+                android:visibility="gone"
                 app:cardBackgroundColor="@color/card_background"
                 app:cardCornerRadius="16dp"
                 app:cardElevation="0dp"
                 app:strokeColor="@color/border_primary"
-                app:strokeWidth="1dp">
+                app:strokeWidth="1dp"
+                tools:visibility="visible">
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -130,139 +154,96 @@
                         style="@style/SettingsSectionLabel"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="@string/section_bag_details"
+                        android:text="@string/section_pallet_values"
                         android:textColor="@color/primary_action" />
 
-                    <LinearLayout
+                    <com.google.android.material.textfield.TextInputLayout
+                        android:id="@+id/tilBagWeight"
+                        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="12dp"
-                        android:gravity="center_vertical"
-                        android:orientation="horizontal">
+                        android:hint="@string/hint_bag_weight"
+                        app:boxStrokeColor="@color/outline_dark"
+                        app:hintTextColor="@color/text_secondary_dark">
 
-                        <com.google.android.material.textfield.TextInputLayout
-                            android:id="@+id/tilBagWeight"
-                            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
-                            android:layout_width="0dp"
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/etBagWeight"
+                            android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:layout_weight="1"
-                            android:hint="@string/hint_bag_weight"
-                            app:boxStrokeColor="@color/outline_dark"
-                            app:hintTextColor="@color/text_secondary_dark">
+                            android:inputType="numberDecimal"
+                            android:maxLines="1"
+                            android:textColor="@color/text_primary_dark" />
+                    </com.google.android.material.textfield.TextInputLayout>
 
-                            <com.google.android.material.textfield.TextInputEditText
-                                android:id="@+id/etBagWeight"
-                                android:layout_width="match_parent"
-                                android:layout_height="wrap_content"
-                                android:inputType="numberDecimal"
-                                android:maxLines="1"
-                                android:textColor="@color/text_primary_dark" />
-                        </com.google.android.material.textfield.TextInputLayout>
-
-                        <com.google.android.material.button.MaterialButton
-                            android:id="@+id/btnConfirmBagWeight"
-                            android:layout_width="wrap_content"
-                            android:layout_height="56dp"
-                            android:layout_marginStart="12dp"
-                            android:minWidth="104dp"
-                            android:text="@string/btn_confirm"
-                            app:cornerRadius="14dp" />
-                    </LinearLayout>
-
-                    <LinearLayout
+                    <com.google.android.material.textfield.TextInputLayout
+                        android:id="@+id/tilBagCount"
+                        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="12dp"
-                        android:gravity="center_vertical"
-                        android:orientation="horizontal">
+                        android:hint="@string/hint_bag_count"
+                        app:boxStrokeColor="@color/outline_dark"
+                        app:hintTextColor="@color/text_secondary_dark">
 
-                        <com.google.android.material.textfield.TextInputLayout
-                            android:id="@+id/tilBagCount"
-                            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
-                            android:layout_width="0dp"
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/etBagCount"
+                            android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:layout_weight="1"
-                            android:hint="@string/hint_bag_count"
-                            app:boxStrokeColor="@color/outline_dark"
-                            app:hintTextColor="@color/text_secondary_dark">
+                            android:inputType="number"
+                            android:maxLines="1"
+                            android:textColor="@color/text_primary_dark" />
+                    </com.google.android.material.textfield.TextInputLayout>
 
-                            <com.google.android.material.textfield.TextInputEditText
-                                android:id="@+id/etBagCount"
-                                android:layout_width="match_parent"
-                                android:layout_height="wrap_content"
-                                android:inputType="number"
-                                android:maxLines="1"
-                                android:textColor="@color/text_primary_dark" />
-                        </com.google.android.material.textfield.TextInputLayout>
-
-                        <com.google.android.material.button.MaterialButton
-                            android:id="@+id/btnConfirmBagCount"
-                            android:layout_width="wrap_content"
-                            android:layout_height="56dp"
-                            android:layout_marginStart="12dp"
-                            android:minWidth="104dp"
-                            android:text="@string/btn_confirm"
-                            app:cornerRadius="14dp" />
-                    </LinearLayout>
-
-                    <LinearLayout
+                    <com.google.android.material.textfield.TextInputLayout
+                        android:id="@+id/tilBatchRef"
+                        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="12dp"
-                        android:gravity="center_vertical"
-                        android:orientation="horizontal">
+                        android:hint="@string/hint_batch_ref"
+                        app:boxStrokeColor="@color/outline_dark"
+                        app:hintTextColor="@color/text_secondary_dark">
 
-                        <com.google.android.material.textfield.TextInputLayout
-                            android:id="@+id/tilBatchRef"
-                            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
-                            android:layout_width="0dp"
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/etBatchRef"
+                            android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:layout_weight="1"
-                            android:hint="@string/hint_batch_ref"
-                            app:boxStrokeColor="@color/outline_dark"
-                            app:hintTextColor="@color/text_secondary_dark">
+                            android:inputType="textCapCharacters|textNoSuggestions"
+                            android:maxLines="1"
+                            android:textColor="@color/text_primary_dark" />
+                    </com.google.android.material.textfield.TextInputLayout>
 
-                            <com.google.android.material.textfield.TextInputEditText
-                                android:id="@+id/etBatchRef"
-                                android:layout_width="match_parent"
-                                android:layout_height="wrap_content"
-                                android:inputType="textCapCharacters|textNoSuggestions"
-                                android:maxLines="1"
-                                android:textColor="@color/text_primary_dark" />
-                        </com.google.android.material.textfield.TextInputLayout>
+                    <TextView
+                        android:id="@+id/tvConfirmStatus"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:textColor="@color/text_muted"
+                        android:textSize="15sp"
+                        android:visibility="gone"
+                        tools:text="Offload recorded"
+                        tools:visibility="visible" />
 
-                        <com.google.android.material.button.MaterialButton
-                            android:id="@+id/btnConfirmBatchRef"
-                            android:layout_width="wrap_content"
-                            android:layout_height="56dp"
-                            android:layout_marginStart="12dp"
-                            android:minWidth="104dp"
-                            android:text="@string/btn_confirm"
-                            app:cornerRadius="14dp" />
-                    </LinearLayout>
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnConfirmOffload"
+                        android:layout_width="match_parent"
+                        android:layout_height="56dp"
+                        android:layout_marginTop="12dp"
+                        android:text="@string/btn_confirm_offload"
+                        app:backgroundTint="@color/primary_action"
+                        app:cornerRadius="14dp" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnBackToScan"
+                        style="@style/Widget.MaterialComponents.Button.TextButton"
+                        android:layout_width="match_parent"
+                        android:layout_height="48dp"
+                        android:layout_marginTop="4dp"
+                        android:text="@string/btn_back_to_scan"
+                        android:textColor="@color/text_secondary_dark" />
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
-
-            <TextView
-                android:id="@+id/tvPairingStatus"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
-                android:textColor="@color/text_muted"
-                android:textSize="15sp"
-                android:visibility="gone"
-                tools:text="Pairing sent"
-                tools:visibility="visible" />
-
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/btnSubmitPairing"
-                android:layout_width="match_parent"
-                android:layout_height="56dp"
-                android:layout_marginTop="16dp"
-                android:enabled="false"
-                android:text="@string/btn_submit_pairing"
-                app:backgroundTint="@color/primary_action"
-                app:cornerRadius="14dp" />
         </LinearLayout>
     </androidx.core.widget.NestedScrollView>
 

@@ -71,8 +71,8 @@ class MainActivity : AppCompatActivity() {
             startActivityForward(Intent(this, TagAssignmentActivity::class.java))
         }
 
-        binding.tileBagPairing.setOnClickListener {
-            startActivityForward(Intent(this, BagPairingActivity::class.java))
+        binding.tileOffload.setOnClickListener {
+            startActivityForward(Intent(this, OffloadActivity::class.java))
         }
 
         binding.btnSettings.setOnClickListener {
@@ -92,10 +92,10 @@ class MainActivity : AppCompatActivity() {
         // on a missing/empty list — display gating only, the station re-checks server-side).
         val session = OperatorSessionHolder.session
         setTileEnabled(binding.tileTagAssignment, session?.canShow(StationTab.TAG_ASSIGNMENT) ?: false)
-        setTileEnabled(binding.tileBagPairing, session?.canShow(StationTab.OFFLOAD) ?: false)
+        setTileEnabled(binding.tileOffload, session?.canShow(StationTab.OFFLOAD) ?: false)
 
         binding.tileTagAssignment.applyPressScaleFeedback()
-        binding.tileBagPairing.applyPressScaleFeedback()
+        binding.tileOffload.applyPressScaleFeedback()
     }
 
     private fun setTileEnabled(view: com.google.android.material.card.MaterialCardView, enabled: Boolean) {

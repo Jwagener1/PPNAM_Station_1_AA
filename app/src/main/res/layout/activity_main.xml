@@ -158,9 +158,9 @@
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
-            <!-- 2. Bag Pairing -->
+            <!-- 2. Offload -->
             <com.google.android.material.card.MaterialCardView
-                android:id="@+id/tileBagPairing"
+                android:id="@+id/tileOffload"
                 android:layout_width="0dp"
                 android:layout_height="200dp"
                 android:layout_columnWeight="1"
@@ -182,14 +182,14 @@
                     <ImageView
                         android:layout_width="80dp"
                         android:layout_height="80dp"
-                        android:contentDescription="Bag Pairing icon"
+                        android:contentDescription="Offload icon"
                         android:src="@drawable/product_request" />
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="16dp"
-                        android:text="@string/tab_bag_pairing"
+                        android:text="@string/tab_offload"
                         android:textAlignment="center"
                         android:textColor="@color/text_primary"
                         android:textSize="18sp"

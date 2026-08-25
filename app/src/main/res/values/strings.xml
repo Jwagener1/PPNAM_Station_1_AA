@@ -12,7 +12,7 @@
 
     <!-- Sub-apps -->
     <string name="tab_tag_assignment">Tag Assignment</string>
-    <string name="tab_bag_pairing">Bag Pairing</string>
+    <string name="tab_offload">Offload</string>
 
     <!-- Tag Assignment -->
     <string name="hint_scan_tag">Scan Tag</string>
@@ -21,19 +21,22 @@
     <string name="status_no_tag">No tag scanned yet</string>
     <string name="status_tag_assigned">Tag assigned</string>
 
-    <!-- Bag Pairing -->
+    <!-- Offload -->
     <string name="section_scan">Scan</string>
-    <string name="section_bag_details">Bag Details</string>
+    <string name="section_pallet_values">Pallet Values</string>
     <string name="hint_tag_id">RFID Tag ID</string>
     <string name="hint_barcode">Barcode</string>
-    <string name="hint_bag_weight">Bag Weight</string>
+    <string name="hint_bag_weight">Bag Weight (kg)</string>
     <string name="hint_bag_count">Number of Bags</string>
     <string name="hint_batch_ref">Batch Reference</string>
-    <string name="btn_confirm">Confirm</string>
-    <string name="btn_edit">Edit</string>
-    <string name="btn_submit_pairing">Submit Pairing</string>
-    <string name="msg_pairing_sent">Pairing sent</string>
-    <string name="error_value_required">Enter a value first</string>
+    <string name="btn_match_pallet">Match Pallet</string>
+    <string name="btn_confirm_offload">Confirm Offload</string>
+    <string name="btn_back_to_scan">Back to Scan</string>
+    <string name="msg_offload_recorded">Offload recorded</string>
+    <string name="error_incomplete_match">Station sent an incomplete match — try again</string>
+    <string name="error_invalid_weight">Enter a bag weight greater than 0</string>
+    <string name="error_invalid_count">Enter a whole number of bags greater than 0</string>
+    <string name="error_batch_required">Enter a batch reference</string>
 
     <!-- Shared send states -->
     <string name="status_sending">Sending…</string>

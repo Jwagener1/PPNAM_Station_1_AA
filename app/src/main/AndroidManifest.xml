@@ -57,9 +57,9 @@
             android:theme="@style/Theme.SysOneScanner" />
 
         <activity
-            android:name=".BagPairingActivity"
+            android:name=".OffloadActivity"
             android:exported="false"
-            android:label="Bag Pairing"
+            android:label="Offload"
             android:theme="@style/Theme.SysOneScanner" />
 
         <activity

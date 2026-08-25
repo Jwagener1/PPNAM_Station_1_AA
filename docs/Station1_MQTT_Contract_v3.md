@@ -2,7 +2,7 @@
 
 | Item | Value |
 |---|---|
-| Contract version | 3.0.0 |
+| Contract version | 3.1.0 |
 | Status | Normative Station 1 scanner contract |
 | Last updated | 2026-08-25 |
 | Target client | PPNAM Station 1 Android handheld scanners (any number; no fixed roles) |
@@ -397,16 +397,64 @@ Rules:
 
 ## 6. Workflow: Offload
 
-The operator opens Offload (permitted by `allowedTabs`), scans a pallet's RFID tag and a
-barcode. The scanner sends the pair; the station validates the match and, when valid,
+The operator opens Offload (permitted by `allowedTabs`) and scans a pallet's RFID tag and
+a barcode. The scanner sends the pair; the station validates the match and, when valid,
 returns the pallet's expected packaging values — `bagWeight`, `bagCount`,
-`batchReference` — as prefill. The operator may edit any of the three values, then
-confirms; the scanner sends the final values (unchanged values are sent back verbatim) and
-the station answers with the committed result.
+`batchReference` — as prefill, together with the open document the pallet belongs to — an
+open purchase order or an open stock transfer request (Section 6.1). The scanner is
+**never locked** to a document: the document number is per-pallet metadata from the
+tag + barcode lookup, and the scanner simply repeats it on that pallet's confirm and,
+should the operator close, on the completion.
 
-### 6.1 Scan step
+The operator may edit any of the three prefill values, then confirms; the scanner sends
+the final values (unchanged values are sent back verbatim) and the station answers with
+the committed result and updated pallet progress. After each accepted confirm the scanner
+asks whether the operator is done; when they are, they close the document from that
+pallet's lookup with a Short / Complete / Over classification (Section 6.4) and the
+scanner returns to scanning.
 
-Request on `PPNAM/station_1/{deviceId}/req/offload_scan`:
+### 6.1 Document resolution (added in 3.1.0)
+
+The scanner never pre-selects, requests, or locks a document. Every `offload_scan`
+carries only the tag and barcode; the station resolves the scanned pallet, and every
+matched `offload_scan_result` carries a minimal `document` object naming the open document
+that pallet belongs to. The document number only becomes available to the scanner through
+this lookup — it is never scanner-side state or operator entry. The scanner displays it
+and repeats its reference on that pallet's `offload_confirm` and on an `offload_complete`.
+
+The `document` object — the same four fields for both document types:
+
+```json
+{
+  "documentType": "purchase_order",
+  "documentNumber": "PO-000123",
+  "palletsScanned": 5,
+  "palletsExpected": 12
+}
+```
+
+Rules:
+
+- `documentType` is exactly `"purchase_order"` or `"stock_transfer"`; `documentNumber` is
+  the PO number / stock transfer number. Supplier, warehouse, date, and status details
+  stay desktop-side — the scanner does not receive or display them.
+- `palletsScanned` and `palletsExpected` are integers — pallets already offloaded against
+  the document (not counting the just-scanned, not-yet-confirmed one) and the total the
+  backend expects for it.
+- The `document` object always names a document the station considers open for receiving
+  at this station; a pallet that resolves to no open document is a failed match
+  (`DOCUMENT_UNKNOWN`).
+- The reference travels on `offload_confirm` and `offload_complete` as the pair
+  `"documentType"` + `"documentNumber"`, repeated verbatim from the scan result.
+  `offload_scan` itself never carries document fields. A missing reference where required
+  is rejected with `DOCUMENT_REQUIRED`; one that does not resolve to an open document with
+  `DOCUMENT_UNKNOWN`; a confirm whose pallet does not belong to the referenced document
+  with `DOCUMENT_MISMATCH`.
+
+### 6.2 Scan step
+
+Request on `PPNAM/station_1/{deviceId}/req/offload_scan` — tag and barcode only, never a
+document reference:
 
 ```json
 {
@@ -418,7 +466,8 @@ Request on `PPNAM/station_1/{deviceId}/req/offload_scan`:
 }
 ```
 
-Response on `PPNAM/station_1/{deviceId}/res/offload_scan_result`:
+Response on `PPNAM/station_1/{deviceId}/res/offload_scan_result` — every matched result
+carries the pallet's resolved document:
 
 ```json
 {
@@ -431,17 +480,26 @@ Response on `PPNAM/station_1/{deviceId}/res/offload_scan_result`:
   "errorCode": null,
   "bagWeight": 25.0,
   "bagCount": 40,
-  "batchReference": "BATCH-2026-0815"
+  "batchReference": "BATCH-2026-0815",
+  "document": {
+    "documentType": "purchase_order",
+    "documentNumber": "PO-000123",
+    "palletsScanned": 5,
+    "palletsExpected": 12
+  }
 }
 ```
 
-- `matched: true` MUST include all three prefill values. `matched: false` carries a stable
-  `errorCode` (e.g. `PAIR_MISMATCH`, `BARCODE_NOT_FOUND`, `TAG_ALREADY_OFFLOADED`) and
-  omits the prefill values; the scanner returns to scanning.
+- `matched: true` MUST include all three prefill values and the `document` object
+  (Section 6.1), whose `palletsScanned`/`palletsExpected` give the document's progress. A
+  pallet that resolves to no open document is `matched: false` with `DOCUMENT_UNKNOWN`.
+- `matched: false` carries a stable `errorCode` (e.g. `PAIR_MISMATCH`,
+  `BARCODE_NOT_FOUND`, `TAG_ALREADY_OFFLOADED`, `DOCUMENT_UNKNOWN`) and omits the prefill
+  and `document` values; the scanner returns to scanning.
 - `bagWeight` is a JSON number (kilograms), `bagCount` a positive JSON integer,
   `batchReference` a string.
 
-### 6.2 Confirm step
+### 6.3 Confirm step
 
 Request on `PPNAM/station_1/{deviceId}/req/offload_confirm`, sent after the operator
 reviews/edits the values (unchanged values are repeated verbatim):
@@ -451,6 +509,8 @@ reviews/edits the values (unchanged values are repeated verbatim):
   "ts": "2026-08-25T09:11:05.000Z",
   "deviceId": "scanner_5c64df8d86a8",
   "operatorSessionId": "reader-session-id",
+  "documentType": "purchase_order",
+  "documentNumber": "PO-000123",
   "tagId": "E280689400005015ABCD1234",
   "barcode": "BC-000123",
   "bagWeight": 24.5,
@@ -469,15 +529,22 @@ Response on `PPNAM/station_1/{deviceId}/res/offload_confirm_result`:
   "barcode": "BC-000123",
   "accepted": true,
   "reason": "Offload recorded.",
-  "errorCode": null
+  "errorCode": null,
+  "palletsScanned": 6,
+  "palletsExpected": 12
 }
 ```
 
+An accepted confirm MUST include the updated progress: `palletsScanned` now **includes**
+the just-committed pallet; the scanner shows it (e.g. "6 of 12") on the done prompt.
+
 Rules:
 
-- The confirm is self-contained: it carries the tag, barcode, and final values, and the
-  station re-validates the pair at confirm time. There is no server-side pairing context
-  the scanner must keep alive between scan and confirm.
+- The confirm is self-contained: it carries the tag, barcode, the document reference from
+  that pallet's scan result, and the final values, and the station re-validates the pair
+  and the pallet's document membership at confirm time (`DOCUMENT_MISMATCH` when the
+  pallet does not belong to the referenced document). There is no server-side pairing
+  context the scanner must keep alive between scan and confirm.
 - The station MUST be idempotent on a re-sent identical confirm for an already-committed
   offload: reply `accepted: true` again without a second mutation. A confirm for a pallet
   offloaded with **different** values, or offloaded from another scan, is rejected with
@@ -487,11 +554,71 @@ Rules:
 - Timeout guidance as in Section 5: pending state, 10-second timeout, PUBACK is not
   success.
 
+### 6.4 Document completion (Short / Complete / Over) — added in 3.1.0
+
+After every accepted confirm the scanner asks whether the operator is done. When they are,
+they classify the receipt and the scanner closes the document from that pallet's
+tag + barcode lookup — the scanner already holds the reference because the scan result
+carried it (Section 6.1); nothing was selected or locked beforehand.
+
+Request on `PPNAM/station_1/{deviceId}/req/offload_complete`:
+
+```json
+{
+  "ts": "2026-08-25T09:20:00.000Z",
+  "deviceId": "scanner_5c64df8d86a8",
+  "operatorSessionId": "reader-session-id",
+  "documentType": "purchase_order",
+  "documentNumber": "PO-000123",
+  "status": "complete"
+}
+```
+
+`status` MUST be exactly one of the lowercase values:
+
+| Value | Meaning |
+|---|---|
+| `short` | Operator is done; fewer goods were received than expected. |
+| `complete` | Operator is done; the receipt matches expectations. |
+| `over` | Operator is done; more goods were received than expected. |
+
+Response on `PPNAM/station_1/{deviceId}/res/offload_complete_result`:
+
+```json
+{
+  "ts": "2026-08-25T09:20:00.080Z",
+  "deviceId": "scanner_5c64df8d86a8",
+  "status": "complete",
+  "accepted": true,
+  "reason": "Receipt closed.",
+  "errorCode": null
+}
+```
+
+Rules:
+
+- The station MUST answer every `offload_complete` with an `offload_complete_result`
+  echoing the same `status` (the scanner correlates on it). `accepted: false` carries a
+  stable `errorCode` and a sanitized operator-readable `reason`.
+- An unknown or missing `status` is rejected with `INVALID_PAYLOAD`. Session and
+  permission failures use the standard codes (`AUTHENTICATION_REQUIRED`,
+  `OPERATOR_SESSION_INVALID`, `ACTION_NOT_ALLOWED` — the completion belongs to the
+  `offload` workflow permission).
+- The station MUST be idempotent on a re-sent identical completion for an
+  already-closed document: reply `accepted: true` again without a second mutation.
+- The completion closes only the referenced document and does not end the operator's
+  session — the scanner returns to scanning afterwards. What the classification does to
+  station-side business state (reconciliation, SAP posting, discrepancy handling) is
+  desktop-authority, out of MQTT scope.
+- Timeout guidance as in Section 5: pending state, 10-second timeout, PUBACK is not
+  success.
+
 ## 7. Workflow envelope and error codes
 
 Workflow messages (Sections 5-6) use the lightweight envelope shown above: `ts`,
 `deviceId`, `operatorSessionId` on requests; `ts`, `deviceId`, and the echoed correlating
-fields (`tagId`, and `barcode` for offload) on responses. Workflow messages do not carry
+fields (`tagId`, `barcode` for the offload pair steps, and `status` for
+`offload_complete`) on responses. Workflow messages do not carry
 `messageId`, `schemaVersion`, `workflowRevision`, `sessionId`, or `stateVersion` — those
 belong to the schema 4.1 authentication envelope and the retired 2.x receiving contract
 respectively.
@@ -527,6 +654,9 @@ Workflow error codes (uppercase), the complete 3.0.0 set:
 | `BARCODE_REQUIRED` | Barcode missing/invalid. |
 | `BARCODE_NOT_FOUND` | Barcode does not resolve to an eligible pallet. |
 | `PAIR_MISMATCH` | Tag and barcode resolve to different pallets. |
+| `DOCUMENT_REQUIRED` | Document reference (`documentType`/`documentNumber`) missing or malformed on `offload_confirm`/`offload_complete`. |
+| `DOCUMENT_UNKNOWN` | No open purchase order / stock transfer: a scanned pallet belongs to no open document, or a carried reference does not resolve. |
+| `DOCUMENT_MISMATCH` | The confirm's pallet does not belong to the referenced document. |
 | `INVALID_BAG_WEIGHT` | Bag weight is not a positive number in the allowed range. |
 | `INVALID_BAG_COUNT` | Bag count is not a positive whole number in the allowed range. |
 | `BATCH_REFERENCE_REQUIRED` | Batch reference missing/invalid. |
@@ -591,6 +721,12 @@ describing current shipped behavior until these land:
 4. New handlers: `tag_scan` → `tag_scan_result`, `offload_scan` → `offload_scan_result`,
    `offload_confirm` → `offload_confirm_result` (Sections 5-6). The 2.x receiving
    handlers and their topics retire with them.
+5. *(3.1.0)* Document resolution on `offload_scan`: every matched result returns the
+   pallet's open PO / stock transfer reference and progress (Section 6.1);
+   `offload_confirm` validates the pallet against the carried reference. Post-commit
+   progress on accepted confirms, and the new `offload_complete` →
+   `offload_complete_result` closure handler (Section 6.4, idempotent on identical
+   replay).
 
 **Station 1 Android app:**
 
@@ -604,6 +740,12 @@ describing current shipped behavior until these land:
    (`AuthClient.kt`), per the shared Station 2 v4.1 authority.
 4. Treat missing/empty `allowedTabs` as no workflows enabled (today the app fails open
    with both tiles enabled).
+5. *(3.1.0)* Read the `document` from each `offload_scan_result`, display its number and
+   progress, and repeat its `documentType`/`documentNumber` on that pallet's
+   `offload_confirm` and on `offload_complete` — no scanner-side document selection or
+   locking. After each accepted `offload_confirm_result`, prompt "Are you done?" — Done
+   opens the Short / Complete / Over choice and sends `offload_complete` for that
+   document (Section 6.4); either way the scanner then returns to scanning.
 
 ## 11. Logging, redaction, and audit
 
@@ -632,12 +774,22 @@ SCRAM verifier keys, broker/SAP/SQL secrets, cookies, and credentials.
   `BARCODE_NOT_FOUND`, and `TAG_ALREADY_OFFLOADED` paths.
 - `offload_confirm` accepted with edited and with unchanged values; identical-confirm
   idempotent replay; conflicting-values rejection; value validation codes.
+- Every matched `offload_scan` returns the pallet's open document with the Section 6.1
+  fields (including pre-commit `palletsScanned`/`palletsExpected`); a pallet belonging to
+  no open document is rejected with `DOCUMENT_UNKNOWN`.
+- `offload_confirm`/`offload_complete` without a document reference are rejected with
+  `DOCUMENT_REQUIRED`; a confirm for a pallet outside the referenced document with
+  `DOCUMENT_MISMATCH`; accepted confirms carry post-commit progress.
+- `offload_complete` accepted for each of `short`/`complete`/`over`, echoing `status` and
+  closing the referenced document; unknown status rejected with `INVALID_PAYLOAD`;
+  identical-completion idempotent replay; session-rejection paths.
 - SQL failure produces no success response.
 
 ## 13. Revision history
 
 | Version | Date | Change |
 |---|---|---|
+| `3.1.0` | 2026-08-25 | Document-aware Offload per the agreed scanner flow: every matched tag+barcode scan resolves the pallet's open purchase order / stock transfer and returns its reference and pallet progress in the scan result (Section 6.1) — no scanner-side document selection or locking; the scanner repeats `documentType`/`documentNumber` on that pallet's confirm and on completion; `palletsScanned`/`palletsExpected` on document objects and accepted confirms; "Are you done?" after each accepted confirm; new `offload_complete` → `offload_complete_result` closing the looked-up document as `short`/`complete`/`over` (Section 6.4); new `DOCUMENT_REQUIRED`/`DOCUMENT_UNKNOWN`/`DOCUMENT_MISMATCH` error codes. |
 | `3.0.0` | 2026-08-25 | Stripped-down scanner contract: fleet-wide namespaced topics and base-node presence/LWT; derived unique device ids; fixed scanner roles removed in favor of login-driven `allowedTabs` (`tag_assignment`, `offload`) enforced on the scanner; new `tag_scan` and two-step `offload_scan`/`offload_confirm` workflows with backend prefill; 2.x receiving message families, broadcasts, and envelope machinery retired; SCRAM proof response confirmed as `scram_proof_result`. |
 | `2.3.0` | 2026-08-25 | Android handoff release; made Station 2 schema 4.1 the shared login/session authority, added exact Android subscriptions/state/persistence rules, exact SCRAM derivation and validation behavior, corrected implemented authentication error names, documented Station 1 capability cutover status, and clarified `sapPostStatus: "Pending"`. |
 | `2.2.0` | 2026-08-24 | Added duplicate-safe Scanner 2 potential shortage/over-receipt report and durable desktop Needs Action workflow. |

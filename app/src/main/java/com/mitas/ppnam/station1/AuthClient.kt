@@ -4,31 +4,27 @@ import android.content.Context
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
+import com.hivemq.client.mqtt.mqtt3.message.publish.Mqtt3Publish
 import org.json.JSONObject
 import java.nio.charset.StandardCharsets
-import java.time.Instant
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
- * Operator authentication over MQTT, mirroring Station 2 AA's AuthUseCase + ScramExchange:
+ * Operator authentication over MQTT — the shared Station 2 schema 4.1 contract on Station 1's
+ * namespaced topics (Station1_MQTT_Contract v3.0.0 §4):
  *
- *  - Credentials login runs an RFC 7677 SCRAM-SHA-256 challenge/proof — the password never goes
- *    on the wire.
- *  - Badge login carries no secret and is a single `login_requested` round trip.
- *  - Logout fires `reader_logout_requested` and clears the local session regardless of the
- *    outcome: stranding an operator logged-in because the network blipped would be worse than a
- *    server-side session that expires on its own.
+ *   req/scram_start_requested   -> res/scram_challenge
+ *   req/scram_proof_requested   -> res/scram_proof_result
+ *   req/login_requested         -> res/operator_context
+ *   req/reader_logout_requested -> res/operator_context (fire-and-forget here)
  *
- * Topics follow Station 1's per-device namespace (MqttTopics), and payloads follow Station 1's
- * envelope idiom (`ts` + `deviceId` on every request). The station side must answer on the
- * device's matching `res/` topic:
+ * Every request carries the schema 4.1 envelope (Schema41). Responses are correlated on
+ * inResponseToMessageId and branched on `accepted`/`errorCode` — free-text `reason` is shown
+ * to the operator, never parsed. Envelope and routing failures arrive on res/request_rejected,
+ * so every round trip listens there too.
  *
- *   req/scram_start_requested  -> res/scram_challenge
- *   req/scram_proof_requested  -> res/operator_context
- *   req/login_requested        -> res/operator_context
- *   req/reader_logout_requested (no response required)
- *
- * A rejection is a response with `"status": "rejected"` and a human-readable `reason`.
+ * Logout clears the local session regardless of the outcome: stranding an operator logged-in
+ * because the network blipped would be worse than a server-side session that expires on its own.
  */
 class AuthClient(context: Context) {
 
@@ -40,6 +36,7 @@ class AuthClient(context: Context) {
         const val TAG = "AuthClient"
         const val REQUEST_TIMEOUT_MS = 10_000L
         const val PURPOSE_LOGIN = "login"
+        const val REJECTED_SUFFIX = "request_rejected"
     }
 
     private fun stationInt(): Int =
@@ -50,7 +47,7 @@ class AuthClient(context: Context) {
     fun login(username: String, password: String, onResult: (Result<OperatorSession>) -> Unit) {
         val clientNonce = ScramCrypto.generateClientNonce()
 
-        val startPayload = envelope().apply {
+        val startPayload = Schema41.envelope(Schema41.newMessageId("auth-start"), deviceId()).apply {
             put("username", username)
             put("clientNonce", clientNonce)
             put("purpose", PURPOSE_LOGIN)
@@ -97,14 +94,14 @@ class AuthClient(context: Context) {
                 return@request onResult(failure("Station sent an unusable authentication challenge"))
             }
 
-            val proofPayload = envelope().apply {
+            val proofPayload = Schema41.envelope(Schema41.newMessageId("auth-proof"), deviceId()).apply {
                 put("challengeId", challengeId)
                 put("clientFinalWithoutProof", clientFinalWithoutProof)
                 put("clientProof", proof.clientProofBase64)
                 put("purpose", PURPOSE_LOGIN)
             }
 
-            request("scram_proof_requested", "operator_context", proofPayload) { proofResult ->
+            request("scram_proof_requested", "scram_proof_result", proofPayload) { proofResult ->
                 val response = proofResult.getOrElse { return@request onResult(Result.failure(it)) }
 
                 // Mutual authentication. Without this check anything that can answer on the
@@ -123,7 +120,7 @@ class AuthClient(context: Context) {
     }
 
     fun loginWithBadge(badgeTag: String, onResult: (Result<OperatorSession>) -> Unit) {
-        val payload = envelope().apply {
+        val payload = Schema41.envelope(Schema41.newMessageId("badge-login"), deviceId()).apply {
             put("badgeTag", badgeTag)
         }
         request("login_requested", "operator_context", payload) { result ->
@@ -132,7 +129,7 @@ class AuthClient(context: Context) {
     }
 
     fun logout(onComplete: () -> Unit = {}) {
-        val payload = envelope().apply {
+        val payload = Schema41.envelope(Schema41.newMessageId("logout"), deviceId()).apply {
             put("operatorSessionId", OperatorSessionHolder.currentSessionIdOrEmpty())
         }
         val topic = MqttTopics.deviceRequest(stationInt(), deviceId(), "reader_logout_requested")
@@ -168,14 +165,10 @@ class AuthClient(context: Context) {
         }
     }
 
-    /** Station 1's request envelope: every request carries `ts` and `deviceId`. */
-    private fun envelope(): JSONObject = JSONObject().apply {
-        put("ts", Instant.now().toString())
-        put("deviceId", deviceId())
-    }
-
     /**
-     * One request/response round trip on this device's req/res topic pair, with a timeout.
+     * One schema 4.1 request/response round trip, with a timeout. The response is accepted only
+     * when its inResponseToMessageId matches this request; rejections — on the response topic or
+     * on res/request_rejected — surface as failures carrying the station's sanitized reason.
      * The callback fires exactly once, on the main thread.
      */
     private fun request(
@@ -191,40 +184,50 @@ class AuthClient(context: Context) {
 
         val station = stationInt()
         val device = deviceId()
+        val requestMessageId = payload.getString("messageId")
         val responseTopic = MqttTopics.deviceResponse(station, device, responseType)
+        val rejectedTopic = MqttTopics.deviceResponse(station, device, REJECTED_SUFFIX)
         val done = AtomicBoolean(false)
 
         lateinit var timeoutRunnable: Runnable
-        lateinit var callback: (com.hivemq.client.mqtt.mqtt3.message.publish.Mqtt3Publish) -> Unit
+        lateinit var onResponse: (Mqtt3Publish) -> Unit
+        lateinit var onRejected: (Mqtt3Publish) -> Unit
 
         fun finish(result: Result<JSONObject>) {
             if (!done.compareAndSet(false, true)) return
             mainHandler.removeCallbacks(timeoutRunnable)
-            mqtt.unsubscribe(responseTopic, callback)
+            mqtt.unsubscribe(responseTopic, onResponse)
+            mqtt.unsubscribe(rejectedTopic, onRejected)
             mainHandler.post { onResult(result) }
         }
 
         timeoutRunnable = Runnable { finish(failure("Station did not respond")) }
 
-        callback = { publish ->
-            try {
-                val json = JSONObject(String(publish.payloadAsBytes, StandardCharsets.UTF_8))
-                if (mqtt.isRelevantToThisScanner(json)) {
-                    val status = json.optString("status", "")
-                    if (status.equals("rejected", ignoreCase = true) || status.equals("error", ignoreCase = true)) {
-                        val reason = json.optString("reason", json.optString("message", ""))
-                        finish(failure(reason.ifBlank { "Authentication failed" }))
-                    } else {
-                        finish(Result.success(json))
-                    }
-                }
-            } catch (e: Exception) {
-                Log.e(TAG, "Malformed $responseType payload", e)
-                finish(failure("Station sent an unreadable response"))
+        // With correlation, a message that isn't ours (wrong device, wrong messageId, or
+        // unparseable) is ignored rather than failing the request — the timeout covers silence.
+        fun parseCorrelated(publish: Mqtt3Publish): JSONObject? = try {
+            val json = JSONObject(String(publish.payloadAsBytes, StandardCharsets.UTF_8))
+            json.takeIf { mqtt.isRelevantToThisScanner(it) && Schema41.isResponseTo(it, requestMessageId) }
+        } catch (e: Exception) {
+            Log.e(TAG, "Malformed payload on ${publish.topic}", e)
+            null
+        }
+
+        onResponse = { publish ->
+            parseCorrelated(publish)?.let { json ->
+                if (Schema41.isAccepted(json)) finish(Result.success(json))
+                else finish(failure(Schema41.rejectionMessage(json)))
             }
         }
 
-        mqtt.subscribe(responseTopic, callback)
+        onRejected = { publish ->
+            parseCorrelated(publish)?.let { json ->
+                finish(failure(Schema41.rejectionMessage(json)))
+            }
+        }
+
+        mqtt.subscribe(responseTopic, onResponse)
+        mqtt.subscribe(rejectedTopic, onRejected)
         mainHandler.postDelayed(timeoutRunnable, REQUEST_TIMEOUT_MS)
 
         mqtt.publish(MqttTopics.deviceRequest(station, device, requestType), payload.toString()) { throwable ->

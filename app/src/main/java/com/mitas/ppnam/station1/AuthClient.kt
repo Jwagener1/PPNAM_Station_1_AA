@@ -42,13 +42,10 @@ class AuthClient(context: Context) {
         const val PURPOSE_LOGIN = "login"
     }
 
-    private fun scannerInt(): Int =
-        appContext.getSharedPreferences("settings", Context.MODE_PRIVATE).getInt("scanner_int", 1)
-
     private fun stationInt(): Int =
         appContext.getSharedPreferences("settings", Context.MODE_PRIVATE).getInt("station_int", 1)
 
-    private fun deviceId(): String = "scanner_${scannerInt()}"
+    private fun deviceId(): String = DeviceIdentity.deviceId(appContext)
 
     fun login(username: String, password: String, onResult: (Result<OperatorSession>) -> Unit) {
         val clientNonce = ScramCrypto.generateClientNonce()

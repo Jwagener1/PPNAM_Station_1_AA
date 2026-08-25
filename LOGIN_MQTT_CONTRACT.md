@@ -21,8 +21,13 @@ All on Station 1's existing per-device namespace (see `MqttTopics.kt`):
 
 ## Payloads
 
-Every request carries Station 1's usual envelope: `ts` (ISO-8601 UTC) and `deviceId`
-(`scanner_{n}`).
+Every request carries Station 1's usual envelope: `ts` (ISO-8601 UTC) and `deviceId`.
+
+`deviceId` is no longer a configured number: it is derived on-device as
+`scanner_<first 12 hex of SHA-256(wifi MAC)>` (e.g. `scanner_a1b2c3d4e5f6`), falling back to
+hashing `ANDROID_ID` where Android (11+) withholds the MAC from apps. The station must treat
+device ids as opaque strings with a `scanner_` prefix, not integers. The id is shown in the
+app's Settings → Diagnostics for enrolment.
 
 `scram_start_requested`: `username`, `clientNonce`, `purpose` (`"login"`).
 

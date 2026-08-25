@@ -62,6 +62,7 @@
     <string name="label_mqtt_broker">MQTT Broker</string>
     <string name="label_station_row">Station 1</string>
     <string name="label_version">Version</string>
+    <string name="label_device_id">Device ID</string>
     <string name="label_signed_in_as">Signed in as</string>
 
     <string name="station_offline_title">MAIN STATION OFFLINE</string>

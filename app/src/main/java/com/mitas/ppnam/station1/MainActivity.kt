@@ -13,7 +13,6 @@ import com.mitas.ppnam.station1.databinding.ActivityMainBinding
 class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
-    private var scannerInt = 1
 
     private val connectionStatusListener: (ConnectionStatus) -> Unit = { status ->
         runOnUiThread {
@@ -48,8 +47,6 @@ class MainActivity : AppCompatActivity() {
             return
         }
 
-        loadSettings()
-
         binding = ActivityMainBinding.inflate(layoutInflater)
         enableEdgeToEdge()
         setContentView(binding.root)
@@ -67,11 +64,6 @@ class MainActivity : AppCompatActivity() {
 
         MqttManager.getInstance(this).addConnectionStatusListener(connectionStatusListener)
         MqttManager.getInstance(this).addStationStatusListener(stationStatusListener)
-    }
-
-    private fun loadSettings() {
-        val prefs = getSharedPreferences("settings", Context.MODE_PRIVATE)
-        scannerInt = prefs.getInt("scanner_int", 1)
     }
 
     private fun setupDashboard() {

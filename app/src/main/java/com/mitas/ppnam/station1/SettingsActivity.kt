@@ -41,13 +41,12 @@ class SettingsActivity : AppCompatActivity() {
         MqttManager.getInstance(this).addConnectionStatusListener(connectionStatusListener)
 
         binding.tvVersion.text = "v${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})"
+        binding.tvDeviceId.text = DeviceIdentity.deviceId(this)
         setupSessionSection()
 
         val prefs = getSharedPreferences("settings", Context.MODE_PRIVATE)
-        val currentScannerInt = prefs.getInt("scanner_int", 1)
         val currentStationInt = prefs.getInt("station_int", 1)
 
-        binding.etSettingsDeviceId.setText(currentScannerInt.toString())
         binding.etSettingsStationId.setText(currentStationInt.toString())
 
         binding.btnUnlock.setOnClickListener { submitPin() }
@@ -61,23 +60,18 @@ class SettingsActivity : AppCompatActivity() {
         }
 
         binding.btnSaveSettings.setOnClickListener {
-            val newScannerStr = binding.etSettingsDeviceId.text.toString().trim()
-            val newStationStr = binding.etSettingsStationId.text.toString().trim()
+            val newStationInt = binding.etSettingsStationId.text.toString().trim().toIntOrNull()
 
-            val newScannerInt = newScannerStr.toIntOrNull()
-            val newStationInt = newStationStr.toIntOrNull()
-
-            if (newScannerInt != null && newStationInt != null) {
-                // 1. Properly disconnect the OLD ID first
+            if (newStationInt != null) {
+                // 1. Properly disconnect from the OLD station namespace first
                 MqttManager.getInstance(this).disconnect {
                     runOnUiThread {
-                        // 2. Save the NEW IDs after the old one is offline
+                        // 2. Save the new station after the old presence is offline
                         prefs.edit()
-                            .putInt("scanner_int", newScannerInt)
                             .putInt("station_int", newStationInt)
                             .apply()
 
-                        // 3. Reconnect with the new ID
+                        // 3. Reconnect on the new station's namespace
                         MqttManager.getInstance(this).connect()
 
                         // Restart app to apply changes
@@ -88,8 +82,7 @@ class SettingsActivity : AppCompatActivity() {
                     }
                 }
             } else {
-                if (newScannerInt == null) binding.etSettingsDeviceId.error = "Invalid number"
-                if (newStationInt == null) binding.etSettingsStationId.error = "Invalid number"
+                binding.etSettingsStationId.error = "Invalid number"
             }
         }
 

@@ -128,11 +128,11 @@ class MqttManager private constructor(context: Context) {
         isConnecting.set(true)
 
         val prefs = appContext.getSharedPreferences("settings", Context.MODE_PRIVATE)
-        val scannerInt = prefs.getInt("scanner_int", 1)
         val stationInt = prefs.getInt("station_int", 1)
         // Presence lives on this scanner's base node (retained, also the Last Will) — the
-        // contract's presence QoS is 2.
-        val presenceTopic = MqttTopics.devicePresence(stationInt, "scanner_$scannerInt")
+        // contract's presence QoS is 2. The device id is derived from this handheld's hardware
+        // (DeviceIdentity), not configured.
+        val presenceTopic = MqttTopics.devicePresence(stationInt, DeviceIdentity.deviceId(appContext))
 
         client = MqttClient.builder()
             .useMqttVersion3()
@@ -297,9 +297,7 @@ class MqttManager private constructor(context: Context) {
     fun isRelevantToThisScanner(payload: JSONObject): Boolean {
         val deviceId = payload.optString("deviceId", "")
         if (deviceId.isEmpty() || !deviceId.startsWith("scanner_")) return true
-        val scannerInt = appContext.getSharedPreferences("settings", Context.MODE_PRIVATE)
-            .getInt("scanner_int", 1)
-        return deviceId == "scanner_$scannerInt"
+        return deviceId == DeviceIdentity.deviceId(appContext)
     }
 
     fun disconnect(onComplete: () -> Unit = {}) {
@@ -310,13 +308,12 @@ class MqttManager private constructor(context: Context) {
             return
         }
         val prefs = appContext.getSharedPreferences("settings", Context.MODE_PRIVATE)
-        val scannerInt = prefs.getInt("scanner_int", 1)
         val stationInt = prefs.getInt("station_int", 1)
 
         notifyListeners(false)
 
         // Publish offline status and wait for it to complete before disconnecting
-        publish(MqttTopics.devicePresence(stationInt, "scanner_$scannerInt"), "offline", true, MqttQos.EXACTLY_ONCE) { throwable ->
+        publish(MqttTopics.devicePresence(stationInt, DeviceIdentity.deviceId(appContext)), "offline", true, MqttQos.EXACTLY_ONCE) { throwable ->
             if (throwable != null) {
                 Log.e("MqttManager", "Failed to publish offline status during disconnect", throwable)
             }

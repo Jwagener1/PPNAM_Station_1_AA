@@ -24,7 +24,6 @@ import java.time.Instant
 class TagAssignmentActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityTagAssignmentBinding
-    private var scannerInt = 1
     private var stationInt = 1
     private var lastSentTag: String? = null
 
@@ -63,7 +62,6 @@ class TagAssignmentActivity : AppCompatActivity() {
 
     private fun loadSettings() {
         val prefs = getSharedPreferences("settings", MODE_PRIVATE)
-        scannerInt = prefs.getInt("scanner_int", 1)
         stationInt = prefs.getInt("station_int", 1)
     }
 
@@ -89,13 +87,14 @@ class TagAssignmentActivity : AppCompatActivity() {
      * `deviceId`), plus the operator's session for attribution.
      */
     private fun sendTag(tagId: String) {
+        val deviceId = DeviceIdentity.deviceId(this)
         val payload = JSONObject().apply {
             put("ts", Instant.now().toString())
-            put("deviceId", "scanner_$scannerInt")
+            put("deviceId", deviceId)
             put("operatorSessionId", OperatorSessionHolder.currentSessionIdOrEmpty())
             put("tagId", tagId)
         }
-        val topic = MqttTopics.deviceRequest(stationInt, "scanner_$scannerInt", "tag_scan")
+        val topic = MqttTopics.deviceRequest(stationInt, deviceId, "tag_scan")
         MqttManager.getInstance(this).publish(topic, payload.toString()) { throwable ->
             runOnUiThread {
                 if (throwable != null) {

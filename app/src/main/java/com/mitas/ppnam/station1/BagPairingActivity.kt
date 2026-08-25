@@ -28,7 +28,6 @@ class BagPairingActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityBagPairingBinding
 
-    private var scannerInt = 1
     private var stationInt = 1
 
     /** One edit-and-confirm field: Confirm locks the value, Edit re-opens it. */
@@ -138,7 +137,6 @@ class BagPairingActivity : AppCompatActivity() {
 
     private fun loadSettings() {
         val prefs = getSharedPreferences("settings", MODE_PRIVATE)
-        scannerInt = prefs.getInt("scanner_int", 1)
         stationInt = prefs.getInt("station_int", 1)
     }
 
@@ -162,9 +160,10 @@ class BagPairingActivity : AppCompatActivity() {
      * `deviceId`), plus the operator's session for attribution.
      */
     private fun submitPairing() {
+        val deviceId = DeviceIdentity.deviceId(this)
         val payload = JSONObject().apply {
             put("ts", Instant.now().toString())
-            put("deviceId", "scanner_$scannerInt")
+            put("deviceId", deviceId)
             put("operatorSessionId", OperatorSessionHolder.currentSessionIdOrEmpty())
             put("tagId", binding.etTag.text.toString().trim())
             put("barcode", binding.etBarcode.text.toString().trim())
@@ -178,7 +177,7 @@ class BagPairingActivity : AppCompatActivity() {
         binding.tvPairingStatus.text = getString(R.string.status_sending)
         binding.tvPairingStatus.setTextColor(getColor(R.color.text_muted))
 
-        val topic = MqttTopics.deviceRequest(stationInt, "scanner_$scannerInt", "bag_pairing")
+        val topic = MqttTopics.deviceRequest(stationInt, deviceId, "bag_pairing")
         MqttManager.getInstance(this).publish(topic, payload.toString()) { throwable ->
             runOnUiThread {
                 if (throwable != null) {

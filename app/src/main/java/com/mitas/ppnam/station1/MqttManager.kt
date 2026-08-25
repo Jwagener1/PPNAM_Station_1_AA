@@ -37,13 +37,8 @@ class MqttManager private constructor(context: Context) {
 
     var isStationOnline = true
         private set
-    
-    private var currentStationId = 1
 
-    private val brokerHost = "mqtt.sysone.co.za"
-    private val brokerPort = 443
-    private val mqttUsername = "admin"
-    private val mqttPassword = "admin"
+    private val settingsRepository = SettingsRepository(appContext)
 
     private val disconnectedListener = MqttClientDisconnectedListener { context: MqttClientDisconnectedContext ->
         Log.w("MqttManager", "Disconnected from broker: ${context.cause.message}")
@@ -123,31 +118,40 @@ class MqttManager private constructor(context: Context) {
             return
         }
 
+        val settings = settingsRepository.brokerSettings()
+        if (!settings.hasBrokerCredential) {
+            // No shared default credential exists to fall back on (Schema 4.1). Until this
+            // handheld is provisioned in Settings, stay deliberately offline rather than
+            // hammering the broker with a credential we know is wrong.
+            Log.w("MqttManager", "No broker credential provisioned; not connecting")
+            wantsConnection.set(false)
+            notifyConnectionStatus()
+            return
+        }
+
         wantsConnection.set(true)
         notifyConnectionStatus()
         isConnecting.set(true)
 
-        val prefs = appContext.getSharedPreferences("settings", Context.MODE_PRIVATE)
-        val stationInt = prefs.getInt("station_int", 1)
         // Presence lives on this scanner's base node (retained, also the Last Will) — the
         // contract's presence QoS is 2. The device id is derived from this handheld's hardware
         // (DeviceIdentity), not configured.
-        val presenceTopic = MqttTopics.devicePresence(stationInt, DeviceIdentity.deviceId(appContext))
+        val presenceTopic = MqttTopics.devicePresence(DeviceIdentity.deviceId(appContext))
 
-        client = MqttClient.builder()
+        var builder = MqttClient.builder()
             .useMqttVersion3()
             .identifier("ScannerApp_" + UUID.randomUUID().toString().take(8))
-            .serverHost(brokerHost)
-            .serverPort(brokerPort)
-            .sslWithDefaultConfig()
-            .webSocketWithDefaultConfig()
+            .serverHost(settings.host)
+            .serverPort(settings.port)
             .addDisconnectedListener(disconnectedListener)
-            .buildAsync()
+        if (settings.useTls) builder = builder.sslWithDefaultConfig()
+        if (settings.useWebSocket) builder = builder.webSocketWithDefaultConfig()
+        client = builder.buildAsync()
 
         client?.connectWith()
             ?.simpleAuth()
-                ?.username(mqttUsername)
-                ?.password(mqttPassword.toByteArray())
+                ?.username(settings.username)
+                ?.password(settings.password.toByteArray())
                 ?.applySimpleAuth()
             ?.keepAlive(15)
             ?.cleanSession(true)
@@ -162,14 +166,12 @@ class MqttManager private constructor(context: Context) {
                 isConnecting.set(false)
                 if (throwable == null) {
                     Log.i("MqttManager", "Connected")
-                    
-                    currentStationId = stationInt // Sync with configured Station ID
 
                     // Explicitly publish online status to clear any stale LWT
                     publish(presenceTopic, "online", true, MqttQos.EXACTLY_ONCE)
 
                     // One subscription captures all of this station's traffic, presence included
-                    subscribeInternal(MqttTopics.stationWildcard(stationInt))
+                    subscribeInternal(MqttTopics.stationWildcard())
                     
                     notifyListeners(true)
                 } else {
@@ -195,7 +197,7 @@ class MqttManager private constructor(context: Context) {
                 val topic = publish.topic.toString()
                 
                 // Internal filtering for Station Status — retained presence on the station base node
-                if (topic == MqttTopics.stationPresence(currentStationId)) {
+                if (topic == MqttTopics.stationPresence()) {
                     val payload = String(publish.payloadAsBytes, Charsets.UTF_8).lowercase()
                     val online = payload == "online"
                     if (online != isStationOnline) {
@@ -307,13 +309,10 @@ class MqttManager private constructor(context: Context) {
             onComplete()
             return
         }
-        val prefs = appContext.getSharedPreferences("settings", Context.MODE_PRIVATE)
-        val stationInt = prefs.getInt("station_int", 1)
-
         notifyListeners(false)
 
         // Publish offline status and wait for it to complete before disconnecting
-        publish(MqttTopics.devicePresence(stationInt, DeviceIdentity.deviceId(appContext)), "offline", true, MqttQos.EXACTLY_ONCE) { throwable ->
+        publish(MqttTopics.devicePresence(DeviceIdentity.deviceId(appContext)), "offline", true, MqttQos.EXACTLY_ONCE) { throwable ->
             if (throwable != null) {
                 Log.e("MqttManager", "Failed to publish offline status during disconnect", throwable)
             }

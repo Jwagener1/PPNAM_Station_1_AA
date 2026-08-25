@@ -306,24 +306,94 @@
                             style="@style/SettingsSectionLabel"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="@string/section_station"
+                            android:text="@string/section_broker"
                             android:textColor="@color/primary_action" />
 
                         <com.google.android.material.textfield.TextInputLayout
-                            android:id="@+id/tilStationId"
+                            android:id="@+id/tilBrokerHost"
                             style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:layout_marginTop="12dp"
-                            android:hint="Station ID (Integer)"
+                            android:hint="@string/hint_broker_host"
                             app:boxStrokeColor="@color/outline_dark"
                             app:hintTextColor="@color/text_secondary_dark">
 
                             <com.google.android.material.textfield.TextInputEditText
-                                android:id="@+id/etSettingsStationId"
+                                android:id="@+id/etBrokerHost"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:inputType="textUri"
+                                android:textColor="@color/text_primary_dark" />
+                        </com.google.android.material.textfield.TextInputLayout>
+
+                        <com.google.android.material.textfield.TextInputLayout
+                            android:id="@+id/tilBrokerPort"
+                            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="12dp"
+                            android:hint="@string/hint_broker_port"
+                            app:boxStrokeColor="@color/outline_dark"
+                            app:hintTextColor="@color/text_secondary_dark">
+
+                            <com.google.android.material.textfield.TextInputEditText
+                                android:id="@+id/etBrokerPort"
                                 android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
                                 android:inputType="number"
+                                android:textColor="@color/text_primary_dark" />
+                        </com.google.android.material.textfield.TextInputLayout>
+
+                        <com.google.android.material.switchmaterial.SwitchMaterial
+                            android:id="@+id/swBrokerWebSocket"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="12dp"
+                            android:text="@string/label_broker_websocket"
+                            android:textColor="@color/text_primary_dark" />
+
+                        <com.google.android.material.switchmaterial.SwitchMaterial
+                            android:id="@+id/swBrokerTls"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="@string/label_broker_tls"
+                            android:textColor="@color/text_primary_dark" />
+
+                        <com.google.android.material.textfield.TextInputLayout
+                            android:id="@+id/tilBrokerUsername"
+                            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="12dp"
+                            android:hint="@string/hint_broker_username"
+                            app:boxStrokeColor="@color/outline_dark"
+                            app:hintTextColor="@color/text_secondary_dark">
+
+                            <com.google.android.material.textfield.TextInputEditText
+                                android:id="@+id/etBrokerUsername"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:inputType="text"
+                                android:textColor="@color/text_primary_dark" />
+                        </com.google.android.material.textfield.TextInputLayout>
+
+                        <com.google.android.material.textfield.TextInputLayout
+                            android:id="@+id/tilBrokerPassword"
+                            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="12dp"
+                            android:hint="@string/hint_broker_password"
+                            app:boxStrokeColor="@color/outline_dark"
+                            app:hintTextColor="@color/text_secondary_dark"
+                            app:passwordToggleEnabled="true">
+
+                            <com.google.android.material.textfield.TextInputEditText
+                                android:id="@+id/etBrokerPassword"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:inputType="textPassword"
                                 android:textColor="@color/text_primary_dark" />
                         </com.google.android.material.textfield.TextInputLayout>
                     </LinearLayout>

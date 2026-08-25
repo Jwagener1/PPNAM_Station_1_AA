@@ -1,6 +1,5 @@
 package com.mitas.ppnam.station1
 
-import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.view.MenuItem
@@ -44,10 +43,16 @@ class SettingsActivity : AppCompatActivity() {
         binding.tvDeviceId.text = DeviceIdentity.deviceId(this)
         setupSessionSection()
 
-        val prefs = getSharedPreferences("settings", Context.MODE_PRIVATE)
-        val currentStationInt = prefs.getInt("station_int", 1)
+        val settingsRepository = SettingsRepository(this)
+        val current = settingsRepository.brokerSettings()
 
-        binding.etSettingsStationId.setText(currentStationInt.toString())
+        binding.etBrokerHost.setText(current.host)
+        binding.etBrokerPort.setText(current.port.toString())
+        binding.swBrokerWebSocket.isChecked = current.useWebSocket
+        binding.swBrokerTls.isChecked = current.useTls
+        binding.etBrokerUsername.setText(current.username)
+        // The password field stays empty: the stored credential is never echoed back into the UI.
+        // A blank field on save means "keep the provisioned password" (see save below).
 
         binding.btnUnlock.setOnClickListener { submitPin() }
         binding.etPin.setOnEditorActionListener { _, actionId, _ ->
@@ -60,29 +65,48 @@ class SettingsActivity : AppCompatActivity() {
         }
 
         binding.btnSaveSettings.setOnClickListener {
-            val newStationInt = binding.etSettingsStationId.text.toString().trim().toIntOrNull()
+            val host = binding.etBrokerHost.text.toString().trim()
+            val port = BrokerSettings.parsePort(binding.etBrokerPort.text.toString())
+            if (host.isBlank()) {
+                binding.etBrokerHost.error = "Host required"
+                return@setOnClickListener
+            }
+            if (port == null) {
+                binding.etBrokerPort.error = "Invalid port (1–65535)"
+                return@setOnClickListener
+            }
 
-            if (newStationInt != null) {
-                // 1. Properly disconnect from the OLD station namespace first
-                MqttManager.getInstance(this).disconnect {
-                    runOnUiThread {
-                        // 2. Save the new station after the old presence is offline
-                        prefs.edit()
-                            .putInt("station_int", newStationInt)
-                            .apply()
+            val typedPassword = binding.etBrokerPassword.text.toString()
+            val newSettings = BrokerSettings(
+                host = host,
+                port = port,
+                useWebSocket = binding.swBrokerWebSocket.isChecked,
+                useTls = binding.swBrokerTls.isChecked,
+                username = binding.etBrokerUsername.text.toString().trim(),
+                // Blank field keeps the already-provisioned password: the repository only
+                // writes a non-blank password to the Keystore.
+                password = typedPassword.ifBlank { settingsRepository.brokerSettings().password },
+            )
 
-                        // 3. Reconnect on the new station's namespace
+            // 1. Properly disconnect from the OLD broker first
+            MqttManager.getInstance(this).disconnect {
+                runOnUiThread {
+                    // 2. Save the new settings after the old presence is offline
+                    if (!settingsRepository.save(newSettings)) {
+                        binding.etBrokerPassword.error = "Could not store the password securely"
                         MqttManager.getInstance(this).connect()
-
-                        // Restart app to apply changes
-                        val intent = Intent(this, MainActivity::class.java)
-                        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
-                        startActivity(intent)
-                        finish()
+                        return@runOnUiThread
                     }
+
+                    // 3. Reconnect against the new broker
+                    MqttManager.getInstance(this).connect()
+
+                    // Restart app to apply changes
+                    val intent = Intent(this, MainActivity::class.java)
+                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+                    startActivity(intent)
+                    finish()
                 }
-            } else {
-                binding.etSettingsStationId.error = "Invalid number"
             }
         }
 

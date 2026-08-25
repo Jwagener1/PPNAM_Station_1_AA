@@ -4,47 +4,49 @@ package com.mitas.ppnam.station1
  * Per-station namespace topic structure per MQTT_CONTRACT.md (2026-08-17 restructure — payloads,
  * QoS, and workflow semantics unchanged; only the topic paths moved):
  *
- *   PPNAM/station_{n}                            station presence (retained, LWT)
- *   PPNAM/station_{n}/{deviceId}                 device presence (retained, LWT)
- *   PPNAM/station_{n}/{deviceId}/req/{suffix}    request  FROM device TO the station
- *   PPNAM/station_{n}/{deviceId}/res/{suffix}    response FROM station TO device
- *   PPNAM/station_{n}/res/{suffix}               station-initiated broadcast
+ *   PPNAM/station_1                            station presence (retained, LWT)
+ *   PPNAM/station_1/{deviceId}                 device presence (retained, LWT)
+ *   PPNAM/station_1/{deviceId}/req/{suffix}    request  FROM device TO the station
+ *   PPNAM/station_1/{deviceId}/res/{suffix}    response FROM station TO device
+ *   PPNAM/station_1/res/{suffix}               station-initiated broadcast
  *
  * Presence lives on each participant's base topic node — there is no /status sub-topic.
+ *
+ * This app serves Station 1 only, so the station segment is a constant rather than a parameter.
  */
 object MqttTopics {
 
-    private fun stationBase(stationInt: Int) = "PPNAM/station_$stationInt"
+    private const val STATION_BASE = "PPNAM/station_1"
 
     /** The station's base node — carries its retained online/offline presence payload. */
-    fun stationPresence(stationInt: Int): String = stationBase(stationInt)
+    fun stationPresence(): String = STATION_BASE
 
     /** This scanner's base node — carries its retained presence payload and Last Will. */
-    fun devicePresence(stationInt: Int, deviceId: String): String {
+    fun devicePresence(deviceId: String): String {
         validateSegment(deviceId, "deviceId")
-        return "${stationBase(stationInt)}/$deviceId"
+        return "$STATION_BASE/$deviceId"
     }
 
-    fun deviceRequest(stationInt: Int, deviceId: String, suffix: String): String {
+    fun deviceRequest(deviceId: String, suffix: String): String {
         validateSegment(deviceId, "deviceId")
         validateSegment(suffix, "suffix")
-        return "${stationBase(stationInt)}/$deviceId/req/$suffix"
+        return "$STATION_BASE/$deviceId/req/$suffix"
     }
 
-    fun deviceResponse(stationInt: Int, deviceId: String, suffix: String): String {
+    fun deviceResponse(deviceId: String, suffix: String): String {
         validateSegment(deviceId, "deviceId")
         validateSegment(suffix, "suffix")
-        return "${stationBase(stationInt)}/$deviceId/res/$suffix"
+        return "$STATION_BASE/$deviceId/res/$suffix"
     }
 
     /** Station-initiated broadcasts — `res` is a reserved segment, never a device id. */
-    fun stationBroadcast(stationInt: Int, suffix: String): String {
+    fun stationBroadcast(suffix: String): String {
         validateSegment(suffix, "suffix")
-        return "${stationBase(stationInt)}/res/$suffix"
+        return "$STATION_BASE/res/$suffix"
     }
 
     /** One subscription capturing all of this station's traffic, presence included. */
-    fun stationWildcard(stationInt: Int): String = "${stationBase(stationInt)}/#"
+    fun stationWildcard(): String = "$STATION_BASE/#"
 
     // The contract forbids '/', '+' and '#' in a topic segment. A segment carrying one of these
     // would silently reshape the topic (or subscribe to a wildcard), so fail loudly instead.

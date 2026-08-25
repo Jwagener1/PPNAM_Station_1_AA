@@ -1,19 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?><!--
-   Sample data extraction rules file; uncomment and customize as necessary.
-   See https://developer.android.com/about/versions/12/backup-restore#xml-changes
-   for details.
+   See https://developer.android.com/about/versions/12/backup-restore#xml-changes for details.
 -->
 <data-extraction-rules>
+    <!-- The encrypted broker credential must never leave the device: its Keystore key does not
+         transfer, so restored ciphertext is undecryptable garbage — and the Schema 4.1 handoff
+         requires the credential to be excluded from backup outright. -->
     <cloud-backup>
-        <!-- TODO: Use <include> and <exclude> to control what is backed up.
-        <include .../>
-        <exclude .../>
-        -->
+        <exclude domain="sharedpref" path="ppnam_secure_credentials.xml" />
     </cloud-backup>
-    <!--
     <device-transfer>
-        <include .../>
-        <exclude .../>
+        <exclude domain="sharedpref" path="ppnam_secure_credentials.xml" />
     </device-transfer>
-    -->
 </data-extraction-rules>

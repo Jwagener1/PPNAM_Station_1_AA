@@ -39,9 +39,6 @@ class WorkflowClient(context: Context) {
             json.optString("errorCode", "") in SESSION_REJECTIONS
     }
 
-    private fun stationInt(): Int =
-        appContext.getSharedPreferences("settings", Context.MODE_PRIVATE).getInt("station_int", 1)
-
     fun request(
         requestType: String,
         responseType: String,
@@ -54,9 +51,8 @@ class WorkflowClient(context: Context) {
             return
         }
 
-        val station = stationInt()
         val device = DeviceIdentity.deviceId(appContext)
-        val responseTopic = MqttTopics.deviceResponse(station, device, responseType)
+        val responseTopic = MqttTopics.deviceResponse(device, responseType)
         val done = AtomicBoolean(false)
 
         lateinit var timeoutRunnable: Runnable
@@ -87,7 +83,7 @@ class WorkflowClient(context: Context) {
         mqtt.subscribe(responseTopic, callback)
         mainHandler.postDelayed(timeoutRunnable, RESPONSE_TIMEOUT_MS)
 
-        mqtt.publish(MqttTopics.deviceRequest(station, device, requestType), payload.toString()) { throwable ->
+        mqtt.publish(MqttTopics.deviceRequest(device, requestType), payload.toString()) { throwable ->
             if (throwable != null) finish(Result.failure(Exception("Could not reach the station")))
         }
     }

@@ -72,7 +72,13 @@
     <!-- Settings -->
     <string name="section_diagnostics">Diagnostics</string>
     <string name="section_configuration">Configuration</string>
-    <string name="section_station">Station</string>
+    <string name="section_broker">Broker</string>
+    <string name="hint_broker_host">Host</string>
+    <string name="hint_broker_port">Port</string>
+    <string name="label_broker_websocket">Use WebSocket</string>
+    <string name="label_broker_tls">Use TLS</string>
+    <string name="hint_broker_username">Username</string>
+    <string name="hint_broker_password">Password</string>
     <string name="section_session">Session</string>
     <string name="label_mqtt_broker">MQTT Broker</string>
     <string name="label_station_row">Station 1</string>

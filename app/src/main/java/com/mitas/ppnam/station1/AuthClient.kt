@@ -39,9 +39,6 @@ class AuthClient(context: Context) {
         const val REJECTED_SUFFIX = "request_rejected"
     }
 
-    private fun stationInt(): Int =
-        appContext.getSharedPreferences("settings", Context.MODE_PRIVATE).getInt("station_int", 1)
-
     private fun deviceId(): String = DeviceIdentity.deviceId(appContext)
 
     fun login(username: String, password: String, onResult: (Result<OperatorSession>) -> Unit) {
@@ -132,7 +129,7 @@ class AuthClient(context: Context) {
         val payload = Schema41.envelope(Schema41.newMessageId("logout"), deviceId()).apply {
             put("operatorSessionId", OperatorSessionHolder.currentSessionIdOrEmpty())
         }
-        val topic = MqttTopics.deviceRequest(stationInt(), deviceId(), "reader_logout_requested")
+        val topic = MqttTopics.deviceRequest(deviceId(), "reader_logout_requested")
         mqtt.publish(topic, payload.toString()) { throwable ->
             if (throwable != null) Log.w(TAG, "Logout publish failed (session cleared anyway)", throwable)
         }
@@ -182,11 +179,10 @@ class AuthClient(context: Context) {
             return
         }
 
-        val station = stationInt()
         val device = deviceId()
         val requestMessageId = payload.getString("messageId")
-        val responseTopic = MqttTopics.deviceResponse(station, device, responseType)
-        val rejectedTopic = MqttTopics.deviceResponse(station, device, REJECTED_SUFFIX)
+        val responseTopic = MqttTopics.deviceResponse(device, responseType)
+        val rejectedTopic = MqttTopics.deviceResponse(device, REJECTED_SUFFIX)
         val done = AtomicBoolean(false)
 
         lateinit var timeoutRunnable: Runnable
@@ -230,7 +226,7 @@ class AuthClient(context: Context) {
         mqtt.subscribe(rejectedTopic, onRejected)
         mainHandler.postDelayed(timeoutRunnable, REQUEST_TIMEOUT_MS)
 
-        mqtt.publish(MqttTopics.deviceRequest(station, device, requestType), payload.toString()) { throwable ->
+        mqtt.publish(MqttTopics.deviceRequest(device, requestType), payload.toString()) { throwable ->
             if (throwable != null) finish(failure("Could not reach the station"))
         }
     }

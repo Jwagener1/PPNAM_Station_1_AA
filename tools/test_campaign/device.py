@@ -96,6 +96,38 @@ class Device:
             time.sleep(interval)
         return None
 
+    def swipe(self, x1: int, y1: int, x2: int, y2: int, ms: int = 300):
+        self.shell("input", "swipe", str(x1), str(y1), str(x2), str(y2), str(ms))
+        time.sleep(0.5)
+
+    def scroll_to(self, id: str, max_swipes: int = 4):
+        """Finds a node, swiping up (then back down) through scrollable content."""
+        node = self.find(id=id, retries=1)
+        for _ in range(max_swipes):
+            if node is not None:
+                return node
+            self.swipe(540, 1300, 540, 500)
+            node = self.find(id=id, retries=1)
+        for _ in range(max_swipes):
+            if node is not None:
+                return node
+            self.swipe(540, 500, 540, 1300)
+            node = self.find(id=id, retries=1)
+        return node
+
+    def wait_field(self, id: str, predicate, timeout: float = 10.0):
+        """Waits until the node exists and predicate(text) is true; returns last text."""
+        deadline = time.time() + timeout
+        last = None
+        while time.time() < deadline:
+            node = self.find(id=id, retries=1)
+            if node is not None:
+                last = node.text
+                if predicate(last):
+                    return last
+            time.sleep(0.5)
+        return last
+
     def wait_gone(self, id: str, timeout: float = 10.0) -> bool:
         deadline = time.time() + timeout
         while time.time() < deadline:

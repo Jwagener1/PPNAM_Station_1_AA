@@ -1,0 +1,79 @@
+{
+ "campaign": "tag_assignment",
+ "ranAt": "2026-08-25T11:50:48Z",
+ "durationS": 77.7,
+ "results": [
+  {
+   "id": "T1",
+   "description": "Accepted tag scan shows success and reaches the station",
+   "verdict": "PASS",
+   "detail": "",
+   "notes": [],
+   "shots": [
+    "C:\\Dev\\Clients\\PPNAM\\Andriod\\PPNAM_Station_1_AA\\tools\\test_campaign\\shots\\T1_accepted.png"
+   ]
+  },
+  {
+   "id": "T2",
+   "description": "Tag held by another scanner surfaces TAG_ALREADY_IN_USE",
+   "verdict": "PASS",
+   "detail": "",
+   "notes": [
+    "status: 'Tag already in use.'"
+   ],
+   "shots": []
+  },
+  {
+   "id": "T3",
+   "description": "Unknown tag surfaces TAG_UNKNOWN",
+   "verdict": "PASS",
+   "detail": "",
+   "notes": [
+    "status: 'Tag unknown.'"
+   ],
+   "shots": []
+  },
+  {
+   "id": "T4",
+   "description": "Re-scanning an own tag is an idempotent success",
+   "verdict": "PASS",
+   "detail": "",
+   "notes": [
+    "status: 'Tag already assigned by this scanner.'"
+   ],
+   "shots": []
+  },
+  {
+   "id": "T5",
+   "description": "Station silence surfaces the 10s timeout, next scan recovers",
+   "verdict": "PASS",
+   "detail": "",
+   "notes": [
+    "timeout status: 'No response from station \u00e2\u20ac\u201d try again'"
+   ],
+   "shots": [
+    "C:\\Dev\\Clients\\PPNAM\\Andriod\\PPNAM_Station_1_AA\\tools\\test_campaign\\shots\\T5_timeout.png"
+   ]
+  },
+  {
+   "id": "T6",
+   "description": "Forced INTERNAL_ERROR is surfaced as a station error",
+   "verdict": "PASS",
+   "detail": "",
+   "notes": [
+    "status: 'Unexpected station error.'"
+   ],
+   "shots": []
+  },
+  {
+   "id": "T7",
+   "description": "Expired session sends the operator back to login",
+   "verdict": "PASS",
+   "detail": "",
+   "notes": [],
+   "shots": [
+    "C:\\Dev\\Clients\\PPNAM\\Andriod\\PPNAM_Station_1_AA\\tools\\test_campaign\\shots\\T7_session_expiry.png"
+   ]
+  }
+ ]
+}

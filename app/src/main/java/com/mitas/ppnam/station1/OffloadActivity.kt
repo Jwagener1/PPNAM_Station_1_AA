@@ -125,6 +125,7 @@ class OffloadActivity : AppCompatActivity() {
             binding.etTag.setText("")
             binding.etBarcode.setText("")
         }
+        binding.scrollOffload.post { binding.scrollOffload.smoothScrollTo(0, 0) }
         updateMatchEnabled()
     }
 
@@ -149,6 +150,9 @@ class OffloadActivity : AppCompatActivity() {
         binding.etBagCount.setText(prefill.bagCount.toString())
         binding.etBatchRef.setText(prefill.batchReference)
         binding.btnConfirmOffload.isEnabled = true
+        // On the C72's display the values card lands below the fold; bring it into view so
+        // the operator sees the prefill and the Confirm button without hunting for them.
+        binding.scrollOffload.post { binding.scrollOffload.smoothScrollTo(0, binding.cardValues.top) }
     }
 
     private fun updateMatchEnabled() {

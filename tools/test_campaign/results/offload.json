@@ -1,0 +1,134 @@
+{
+ "campaign": "offload",
+ "ranAt": "2026-08-25T14:26:18Z",
+ "durationS": 697.9,
+ "results": [
+  {
+   "id": "O1",
+   "description": "Matched scan prefills values + document progress on the edit step",
+   "verdict": "PASS",
+   "detail": "",
+   "notes": [],
+   "shots": [
+    "C:\\Dev\\Clients\\PPNAM\\Andriod\\PPNAM_Station_1_AA\\tools\\test_campaign\\shots\\O1_edit_step.png"
+   ]
+  },
+  {
+   "id": "O2",
+   "description": "Scan rejection TAG-PAL-001+BC-002 returns to scanning",
+   "verdict": "PASS",
+   "detail": "",
+   "notes": [
+    "status: 'Pair mismatch.'"
+   ],
+   "shots": []
+  },
+  {
+   "id": "O3",
+   "description": "Scan rejection TAG-PAL-001+BC-NOPE returns to scanning",
+   "verdict": "PASS",
+   "detail": "",
+   "notes": [
+    "status: 'Barcode not found.'"
+   ],
+   "shots": []
+  },
+  {
+   "id": "O4",
+   "description": "Scan rejection TAG-PAL-OFF+BC-OFF returns to scanning",
+   "verdict": "PASS",
+   "detail": "",
+   "notes": [
+    "status: 'Tag already offloaded.'"
+   ],
+   "shots": []
+  },
+  {
+   "id": "O5",
+   "description": "Scan rejection TAG-PAL-NODOC+BC-NODOC returns to scanning",
+   "verdict": "PASS",
+   "detail": "",
+   "notes": [
+    "status: 'Document unknown.'"
+   ],
+   "shots": []
+  },
+  {
+   "id": "O6",
+   "description": "Confirm with an edited weight; done prompt shows 6 of 12; Next Pallet resumes",
+   "verdict": "PASS",
+   "detail": "",
+   "notes": [],
+   "shots": [
+    "C:\\Dev\\Clients\\PPNAM\\Andriod\\PPNAM_Station_1_AA\\tools\\test_campaign\\shots\\O6_done_prompt.png"
+   ]
+  },
+  {
+   "id": "O7",
+   "description": "Client-side validation blocks a zero weight locally",
+   "verdict": "PASS",
+   "detail": "",
+   "notes": [],
+   "shots": []
+  },
+  {
+   "id": "O8",
+   "description": "Server-side INVALID_BAG_WEIGHT keeps the operator on the edit step",
+   "verdict": "PASS",
+   "detail": "",
+   "notes": [
+    "status: 'Invalid bag weight.'"
+   ],
+   "shots": []
+  },
+  {
+   "id": "O9",
+   "description": "Confirm timeout stays on edit; retry succeeds",
+   "verdict": "PASS",
+   "detail": "",
+   "notes": [],
+   "shots": []
+  },
+  {
+   "id": "O10",
+   "description": "Done -> Complete closes the document; its pallets stop resolving",
+   "verdict": "PASS",
+   "detail": "",
+   "notes": [
+    "post-close scan status: 'Document unknown.'"
+   ],
+   "shots": [
+    "C:\\Dev\\Clients\\PPNAM\\Andriod\\PPNAM_Station_1_AA\\tools\\test_campaign\\shots\\O10_close_prompt.png"
+   ]
+  },
+  {
+   "id": "O11",
+   "description": "Short and Over classifications are both accepted",
+   "verdict": "PASS",
+   "detail": "",
+   "notes": [
+    "Short: 'ST-000077 closed \u00e2\u20ac\u201d Short'",
+    "Over: 'ST-000077 closed \u00e2\u20ac\u201d Over'"
+   ],
+   "shots": []
+  },
+  {
+   "id": "O12",
+   "description": "Failed completion re-offers the close prompt; retry closes",
+   "verdict": "PASS",
+   "detail": "",
+   "notes": [],
+   "shots": [
+    "C:\\Dev\\Clients\\PPNAM\\Andriod\\PPNAM_Station_1_AA\\tools\\test_campaign\\shots\\O12_reprompt.png"
+   ]
+  },
+  {
+   "id": "O13",
+   "description": "Back to scan from the edit step keeps the scanned pair",
+   "verdict": "PASS",
+   "detail": "",
+   "notes": [],
+   "shots": []
+  }
+ ]
+}

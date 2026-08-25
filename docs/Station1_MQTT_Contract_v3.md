@@ -417,21 +417,19 @@ scanner returns to scanning.
 
 The scanner never pre-selects, requests, or locks a document. Every `offload_scan`
 carries only the tag and barcode; the station resolves the scanned pallet, and every
-matched `offload_scan_result` carries a minimal `document` object naming the open document
-that pallet belongs to. The document number only becomes available to the scanner through
-this lookup — it is never scanner-side state or operator entry. The scanner displays it
-and repeats its reference on that pallet's `offload_confirm` and on an `offload_complete`.
-
-The `document` object — the same four fields for both document types:
+matched `offload_scan_result` carries the open document that pallet belongs to as four
+plain top-level fields — no sub-object:
 
 ```json
-{
-  "documentType": "purchase_order",
-  "documentNumber": "PO-000123",
-  "palletsScanned": 5,
-  "palletsExpected": 12
-}
+"documentType": "purchase_order",
+"documentNumber": "PO-000123",
+"palletsScanned": 5,
+"palletsExpected": 12
 ```
+
+The document number only becomes available to the scanner through this lookup — it is
+never scanner-side state or operator entry. The scanner displays it and repeats the
+reference on that pallet's `offload_confirm` and on an `offload_complete`.
 
 Rules:
 
@@ -441,8 +439,8 @@ Rules:
 - `palletsScanned` and `palletsExpected` are integers — pallets already offloaded against
   the document (not counting the just-scanned, not-yet-confirmed one) and the total the
   backend expects for it.
-- The `document` object always names a document the station considers open for receiving
-  at this station; a pallet that resolves to no open document is a failed match
+- The resolved document is always one the station considers open for receiving at this
+  station; a pallet that resolves to no open document is a failed match
   (`DOCUMENT_UNKNOWN`).
 - The reference travels on `offload_confirm` and `offload_complete` as the pair
   `"documentType"` + `"documentNumber"`, repeated verbatim from the scan result.
@@ -481,21 +479,19 @@ carries the pallet's resolved document:
   "bagWeight": 25.0,
   "bagCount": 40,
   "batchReference": "BATCH-2026-0815",
-  "document": {
-    "documentType": "purchase_order",
-    "documentNumber": "PO-000123",
-    "palletsScanned": 5,
-    "palletsExpected": 12
-  }
+  "documentType": "purchase_order",
+  "documentNumber": "PO-000123",
+  "palletsScanned": 5,
+  "palletsExpected": 12
 }
 ```
 
-- `matched: true` MUST include all three prefill values and the `document` object
+- `matched: true` MUST include all three prefill values and the four document fields
   (Section 6.1), whose `palletsScanned`/`palletsExpected` give the document's progress. A
   pallet that resolves to no open document is `matched: false` with `DOCUMENT_UNKNOWN`.
 - `matched: false` carries a stable `errorCode` (e.g. `PAIR_MISMATCH`,
   `BARCODE_NOT_FOUND`, `TAG_ALREADY_OFFLOADED`, `DOCUMENT_UNKNOWN`) and omits the prefill
-  and `document` values; the scanner returns to scanning.
+  and document fields; the scanner returns to scanning.
 - `bagWeight` is a JSON number (kilograms), `bagCount` a positive JSON integer,
   `batchReference` a string.
 
@@ -740,8 +736,8 @@ describing current shipped behavior until these land:
    (`AuthClient.kt`), per the shared Station 2 v4.1 authority.
 4. Treat missing/empty `allowedTabs` as no workflows enabled (today the app fails open
    with both tiles enabled).
-5. *(3.1.0)* Read the `document` from each `offload_scan_result`, display its number and
-   progress, and repeat its `documentType`/`documentNumber` on that pallet's
+5. *(3.1.0)* Read the document fields from each `offload_scan_result`, display the number
+   and progress, and repeat `documentType`/`documentNumber` on that pallet's
    `offload_confirm` and on `offload_complete` — no scanner-side document selection or
    locking. After each accepted `offload_confirm_result`, prompt "Are you done?" — Done
    opens the Short / Complete / Over choice and sends `offload_complete` for that

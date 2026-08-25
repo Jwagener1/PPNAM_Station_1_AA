@@ -1,0 +1,111 @@
+{
+ "campaign": "login",
+ "ranAt": "2026-08-25T11:48:30Z",
+ "durationS": 295.4,
+ "results": [
+  {
+   "id": "L1",
+   "description": "SCRAM login (op.both) reaches workflow selection, both tiles enabled",
+   "verdict": "PASS",
+   "detail": "",
+   "notes": [],
+   "shots": [
+    "C:\\Dev\\Clients\\PPNAM\\Andriod\\PPNAM_Station_1_AA\\tools\\test_campaign\\shots\\L1_main.png"
+   ]
+  },
+  {
+   "id": "L2",
+   "description": "Wrong password shows an error and stays on login",
+   "verdict": "PASS",
+   "detail": "",
+   "notes": [
+    "error shown: 'SCRAM proof rejected.'"
+   ],
+   "shots": [
+    "C:\\Dev\\Clients\\PPNAM\\Andriod\\PPNAM_Station_1_AA\\tools\\test_campaign\\shots\\L2_wrong_password.png"
+   ]
+  },
+  {
+   "id": "L3",
+   "description": "Unknown username shows an error and stays on login",
+   "verdict": "PASS",
+   "detail": "",
+   "notes": [
+    "error shown: 'SCRAM start rejected.'"
+   ],
+   "shots": []
+  },
+  {
+   "id": "L4",
+   "description": "allowedTabs gating for op.tag -> {'tag': True, 'off': False}",
+   "verdict": "PASS",
+   "detail": "",
+   "notes": [],
+   "shots": [
+    "C:\\Dev\\Clients\\PPNAM\\Andriod\\PPNAM_Station_1_AA\\tools\\test_campaign\\shots\\L4_op_tag.png"
+   ]
+  },
+  {
+   "id": "L5",
+   "description": "allowedTabs gating for op.off -> {'tag': False, 'off': True}",
+   "verdict": "PASS",
+   "detail": "",
+   "notes": [],
+   "shots": [
+    "C:\\Dev\\Clients\\PPNAM\\Andriod\\PPNAM_Station_1_AA\\tools\\test_campaign\\shots\\L5_op_off.png"
+   ]
+  },
+  {
+   "id": "L6",
+   "description": "allowedTabs gating for op.none -> {'tag': False, 'off': False}",
+   "verdict": "PASS",
+   "detail": "",
+   "notes": [],
+   "shots": [
+    "C:\\Dev\\Clients\\PPNAM\\Andriod\\PPNAM_Station_1_AA\\tools\\test_campaign\\shots\\L6_op_none.png"
+   ]
+  },
+  {
+   "id": "L7",
+   "description": "Badge scan on login screen signs in (badge login)",
+   "verdict": "PASS",
+   "detail": "",
+   "notes": [],
+   "shots": [
+    "C:\\Dev\\Clients\\PPNAM\\Andriod\\PPNAM_Station_1_AA\\tools\\test_campaign\\shots\\L7_badge.png"
+   ]
+  },
+  {
+   "id": "L8",
+   "description": "Unknown badge is rejected and stays on login",
+   "verdict": "PASS",
+   "detail": "",
+   "notes": [
+    "error shown: 'Badge not recognized.'"
+   ],
+   "shots": []
+  },
+  {
+   "id": "L9",
+   "description": "Login timeout (station silent) surfaces an error, app stays usable",
+   "verdict": "PASS",
+   "detail": "",
+   "notes": [
+    "error shown: 'Station did not respond'"
+   ],
+   "shots": [
+    "C:\\Dev\\Clients\\PPNAM\\Andriod\\PPNAM_Station_1_AA\\tools\\test_campaign\\shots\\L9_timeout.png"
+   ]
+  },
+  {
+   "id": "L10",
+   "description": "Logout returns to login and closes the session at the station",
+   "verdict": "PASS",
+   "detail": "",
+   "notes": [],
+   "shots": [
+    "C:\\Dev\\Clients\\PPNAM\\Andriod\\PPNAM_Station_1_AA\\tools\\test_campaign\\shots\\L10_logout.png"
+   ]
+  }
+ ]
+}

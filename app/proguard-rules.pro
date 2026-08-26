@@ -3,7 +3,7 @@
 -renamesourcefileattribute SourceFile
 
 # Keep all app classes (Activities, Application, etc.)
--keep class com.mitas.ppnam.station1.** { *; }
+-keep class com.mitas.ppnam.station1aa.** { *; }
 
 # HiveMQ MQTT client
 -keep class com.hivemq.** { *; }

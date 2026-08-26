@@ -89,7 +89,7 @@
                 app:tint="@color/text_primary" />
 
             <!-- Connection status pill -->
-            <com.mitas.ppnam.station1.ConnectionPillView
+            <com.mitas.ppnam.station1aa.ConnectionPillView
                 android:id="@+id/connectionPill"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"

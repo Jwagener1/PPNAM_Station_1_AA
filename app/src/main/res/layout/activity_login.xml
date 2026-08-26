@@ -37,7 +37,7 @@
                     android:src="@android:drawable/ic_menu_preferences"
                     app:tint="@color/text_muted" />
 
-                <com.mitas.ppnam.station1.ConnectionPillView
+                <com.mitas.ppnam.station1aa.ConnectionPillView
                     android:id="@+id/connectionPill"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"

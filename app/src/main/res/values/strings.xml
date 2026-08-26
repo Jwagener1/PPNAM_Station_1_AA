@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">SysOneScanner</string>
+    <string name="app_name">Station 1</string>
     <string name="status_online">Online</string>
     <string name="status_offline">Offline</string>
     <string name="status_connecting">Connecting</string>

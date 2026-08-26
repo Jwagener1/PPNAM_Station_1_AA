@@ -17,8 +17,14 @@
     <color name="text_primary">#EDF4FB</color>
     <color name="text_muted">#9BAEC0</color>
 
+    <!-- App identity - PPNAM icon pack app 1 (blue): field and light tint.
+         The field colour doubles as the primary action colour so each station
+         app carries its launcher identity through its UI. -->
+    <color name="brand_field">#1B4DA0</color>
+    <color name="brand_tint">#9FBBE6</color>
+
     <!-- Semantic / Accent Colours -->
-    <color name="primary_action">#2E77F5</color>
+    <color name="primary_action">@color/brand_field</color>
     <color name="accent_action">#25C7DA</color>
     <color name="success">#2BC36D</color>
     <color name="warning">#F0A13A</color>

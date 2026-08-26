@@ -16,7 +16,7 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 
 ADB = str(Path(os.environ["LOCALAPPDATA"]) / "Android/Sdk/platform-tools/adb.exe")
-PACKAGE = "com.mitas.ppnam.station1"
+PACKAGE = "com.mitas.ppnam.station1aa"
 SHOTS = Path(__file__).resolve().parent / "shots"
 
 

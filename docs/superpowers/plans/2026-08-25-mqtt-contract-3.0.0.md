@@ -20,7 +20,7 @@
 - `allowedTabs` values are `"tag_assignment"` and `"offload"`; missing or empty list = **no workflows enabled** (fail closed).
 - 10-second response timeout on every round trip; a PUBACK is never shown as business success.
 - `bagWeight` goes on the wire as a JSON number, `bagCount` as a JSON integer, `batchReference` as a string.
-- Package: `com.mitas.ppnam.station1`. Source root: `app\src\main\java\com\mitas\ppnam\station1\`. Test root: `app\src\test\java\com\mitas\ppnam\station1\`.
+- Package: `com.mitas.ppnam.station1aa`. Source root: `app\src\main\java\com\mitas\ppnam\station1\`. Test root: `app\src\test\java\com\mitas\ppnam\station1\`.
 - Existing JVM unit tests must stay green: `.\gradlew.bat :app:testDebugUnitTest`.
 
 ---
@@ -56,7 +56,7 @@ Unit tests run against the mockable android.jar whose `org.json` classes are stu
 Create `app\src\test\java\com\mitas\ppnam\station1\Schema41Test.kt`:
 
 ```kotlin
-package com.mitas.ppnam.station1
+package com.mitas.ppnam.station1aa
 
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
@@ -143,7 +143,7 @@ class Schema41Test {
 
 - [ ] **Step 3: Run the test to verify it fails**
 
-Run: `.\gradlew.bat :app:testDebugUnitTest --tests "com.mitas.ppnam.station1.Schema41Test"`
+Run: `.\gradlew.bat :app:testDebugUnitTest --tests "com.mitas.ppnam.station1aa.Schema41Test"`
 Expected: compilation FAILS with unresolved reference `Schema41`.
 
 - [ ] **Step 4: Write the implementation**
@@ -151,7 +151,7 @@ Expected: compilation FAILS with unresolved reference `Schema41`.
 Create `app\src\main\java\com\mitas\ppnam\station1\Schema41.kt`:
 
 ```kotlin
-package com.mitas.ppnam.station1
+package com.mitas.ppnam.station1aa
 
 import org.json.JSONObject
 import java.time.Instant
@@ -209,7 +209,7 @@ object Schema41 {
 
 - [ ] **Step 5: Run the test to verify it passes**
 
-Run: `.\gradlew.bat :app:testDebugUnitTest --tests "com.mitas.ppnam.station1.Schema41Test"`
+Run: `.\gradlew.bat :app:testDebugUnitTest --tests "com.mitas.ppnam.station1aa.Schema41Test"`
 Expected: BUILD SUCCESSFUL, all 7 tests pass.
 
 - [ ] **Step 6: Commit**
@@ -241,7 +241,7 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>
 Create `app\src\test\java\com\mitas\ppnam\station1\OperatorSessionTest.kt`:
 
 ```kotlin
-package com.mitas.ppnam.station1
+package com.mitas.ppnam.station1aa
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -293,7 +293,7 @@ class OperatorSessionTest {
 
 - [ ] **Step 2: Run the test to verify it fails**
 
-Run: `.\gradlew.bat :app:testDebugUnitTest --tests "com.mitas.ppnam.station1.OperatorSessionTest"`
+Run: `.\gradlew.bat :app:testDebugUnitTest --tests "com.mitas.ppnam.station1aa.OperatorSessionTest"`
 Expected: compilation FAILS (`StationTab.OFFLOAD` unresolved); after any stub, the empty-list test would fail against the current fail-open `canShow`.
 
 - [ ] **Step 3: Implement**
@@ -338,7 +338,7 @@ In `MainActivity.kt`, update the tile-gating block (lines 91-95): change the com
 
 - [ ] **Step 4: Run the tests to verify they pass**
 
-Run: `.\gradlew.bat :app:testDebugUnitTest --tests "com.mitas.ppnam.station1.OperatorSessionTest"`
+Run: `.\gradlew.bat :app:testDebugUnitTest --tests "com.mitas.ppnam.station1aa.OperatorSessionTest"`
 Expected: BUILD SUCCESSFUL, 4 tests pass.
 
 - [ ] **Step 5: Commit**
@@ -375,7 +375,7 @@ Behavior changes required by the contract:
 Full new content:
 
 ```kotlin
-package com.mitas.ppnam.station1
+package com.mitas.ppnam.station1aa
 
 import android.content.Context
 import android.os.Handler
@@ -660,7 +660,7 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>
 Create `app\src\test\java\com\mitas\ppnam\station1\WorkflowMessagesTest.kt`:
 
 ```kotlin
-package com.mitas.ppnam.station1
+package com.mitas.ppnam.station1aa
 
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
@@ -765,7 +765,7 @@ class WorkflowMessagesTest {
 
 - [ ] **Step 2: Run the test to verify it fails**
 
-Run: `.\gradlew.bat :app:testDebugUnitTest --tests "com.mitas.ppnam.station1.WorkflowMessagesTest"`
+Run: `.\gradlew.bat :app:testDebugUnitTest --tests "com.mitas.ppnam.station1aa.WorkflowMessagesTest"`
 Expected: compilation FAILS with unresolved references.
 
 - [ ] **Step 3: Write the implementation**
@@ -773,7 +773,7 @@ Expected: compilation FAILS with unresolved references.
 Create `app\src\main\java\com\mitas\ppnam\station1\WorkflowMessages.kt`:
 
 ```kotlin
-package com.mitas.ppnam.station1
+package com.mitas.ppnam.station1aa
 
 import org.json.JSONObject
 import java.time.Instant
@@ -861,7 +861,7 @@ object OffloadInput {
 
 - [ ] **Step 4: Run the test to verify it passes**
 
-Run: `.\gradlew.bat :app:testDebugUnitTest --tests "com.mitas.ppnam.station1.WorkflowMessagesTest"`
+Run: `.\gradlew.bat :app:testDebugUnitTest --tests "com.mitas.ppnam.station1aa.WorkflowMessagesTest"`
 Expected: BUILD SUCCESSFUL, 7 tests pass.
 
 - [ ] **Step 5: Commit**
@@ -896,7 +896,7 @@ No JVM unit test — the class is a thin MQTT/Handler adapter with no pure logic
 Create `app\src\main\java\com\mitas\ppnam\station1\WorkflowClient.kt`:
 
 ```kotlin
-package com.mitas.ppnam.station1
+package com.mitas.ppnam.station1aa
 
 import android.content.Context
 import android.os.Handler
@@ -1034,7 +1034,7 @@ In `app\src\main\res\values\strings.xml`:
 Full new content:
 
 ```kotlin
-package com.mitas.ppnam.station1
+package com.mitas.ppnam.station1aa
 
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -1048,7 +1048,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
-import com.mitas.ppnam.station1.databinding.ActivityTagAssignmentBinding
+import com.mitas.ppnam.station1aa.databinding.ActivityTagAssignmentBinding
 
 /**
  * Tag Assignment (contract v3.0.0 §5): every scanned RFID tag is sent automatically as
@@ -1290,7 +1290,7 @@ and replace the whole `<!-- Bag Pairing -->` block with:
             app:title="@string/tab_offload"
             app:titleTextAppearance="@style/TextAppearance.SysOneScanner.ToolbarTitle">
 
-            <com.mitas.ppnam.station1.ConnectionPillView
+            <com.mitas.ppnam.station1aa.ConnectionPillView
                 android:id="@+id/connectionPill"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
@@ -1522,7 +1522,7 @@ and replace the whole `<!-- Bag Pairing -->` block with:
 - [ ] **Step 3: Create `app\src\main\java\com\mitas\ppnam\station1\OffloadActivity.kt`**
 
 ```kotlin
-package com.mitas.ppnam.station1
+package com.mitas.ppnam.station1aa
 
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -1537,7 +1537,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
-import com.mitas.ppnam.station1.databinding.ActivityOffloadBinding
+import com.mitas.ppnam.station1aa.databinding.ActivityOffloadBinding
 import org.json.JSONObject
 
 /**

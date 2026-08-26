@@ -206,6 +206,22 @@ class MqttManager private constructor(context: Context) {
                     }
                 }
 
+                // Self-heal: a quick restart lets the previous connection's Last Will land
+                // after this connection's retained `online`, sticking presence at `offline`
+                // while connected — republish `online` whenever our own node reads offline.
+                val ownPresence = MqttTopics.devicePresence(DeviceIdentity.deviceId(appContext))
+                if (PresenceSelfHeal.shouldRestoreOnline(
+                        topic,
+                        String(publish.payloadAsBytes, Charsets.UTF_8),
+                        ownPresence,
+                        isConnected(),
+                        wantsConnection.get(),
+                    )
+                ) {
+                    Log.w("MqttManager", "Own presence read offline while connected; republishing online")
+                    publish(ownPresence, "online", true, MqttQos.EXACTLY_ONCE)
+                }
+
                 // Global dispatch to other subscribers
                 subscriptions.forEach { (topicFilter, callbacks) ->
                     if (matches(topic, topicFilter)) {

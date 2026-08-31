@@ -26,10 +26,14 @@ android {
 
     signingConfigs {
         create("release") {
-            storeFile = file(keystoreProps["storeFile"] as String)
-            storePassword = keystoreProps["storePassword"] as String
-            keyAlias = keystoreProps["keyAlias"] as String
-            keyPassword = keystoreProps["keyPassword"] as String
+            // keystore/keystore.properties is untracked; machines without it
+            // (e.g. CI, which only builds debug) still need to configure.
+            if (keystoreProps.isNotEmpty()) {
+                storeFile = file(keystoreProps["storeFile"] as String)
+                storePassword = keystoreProps["storePassword"] as String
+                keyAlias = keystoreProps["keyAlias"] as String
+                keyPassword = keystoreProps["keyPassword"] as String
+            }
         }
     }
 

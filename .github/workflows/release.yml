@@ -3,8 +3,9 @@ name: Release APK
 # Builds the APK and publishes it as a GitHub Release whenever a v* tag
 # is pushed. The APK is signed with the shared PPNAM debug keystore
 # (secret DEBUG_KEYSTORE_B64) so it stays signature-compatible with the
-# apps already installed on provisioned scanners. A workflow_dispatch
-# run builds the APK as a downloadable artifact without releasing.
+# apps already installed on provisioned scanners; the signature is
+# verified against the expected certificate before anything is released.
+# A workflow_dispatch run builds the APK as an artifact without releasing.
 
 on:
   push:
@@ -13,6 +14,11 @@ on:
 
 permissions:
   contents: write
+
+env:
+  # SHA-256 of the shared debug certificate. The build fails if the APK
+  # is signed with anything else (that would break updates on scanners).
+  EXPECTED_CERT_SHA256: a704ae09edb302113f2e11fb5a493340f461d0fe2b9c3a7571e4d0becfe28a65
 
 jobs:
   release:
@@ -31,6 +37,10 @@ jobs:
         run: |
           mkdir -p "$HOME/.android"
           echo "${{ secrets.DEBUG_KEYSTORE_B64 }}" | base64 -d > "$HOME/.android/debug.keystore"
+          # Pin the Android user dir so AGP cannot resolve a different
+          # location and silently generate a fresh debug keystore.
+          echo "ANDROID_USER_HOME=$HOME/.android" >> "$GITHUB_ENV"
+          keytool -list -keystore "$HOME/.android/debug.keystore" -storepass android | grep -A1 androiddebugkey || true
 
       - name: Build APK
         run: |
@@ -41,6 +51,16 @@ jobs:
       - name: Stage APK under repository name
         run: cp app/build/outputs/apk/debug/app-debug.apk "${{ github.event.repository.name }}.apk"
 
+      - name: Verify APK signature matches the shared keystore
+        run: |
+          BT="$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -n1)"
+          DIGEST=$("$BT/apksigner" verify --print-certs "${{ github.event.repository.name }}.apk" | sed -n 's/.*SHA-256 digest: //p' | head -n1)
+          echo "APK certificate SHA-256: $DIGEST"
+          if [ "$DIGEST" != "$EXPECTED_CERT_SHA256" ]; then
+            echo "::error::APK signature does not match the shared debug keystore - releasing this would break updates on provisioned scanners."
+            exit 1
+          fi
+
       - name: Publish GitHub Release
         if: startsWith(github.ref, 'refs/tags/')
         env:
@@ -48,7 +68,8 @@ jobs:
         run: |
           gh release create "$GITHUB_REF_NAME" "${{ github.event.repository.name }}.apk" \
             --title "${{ github.event.repository.name }} $GITHUB_REF_NAME" \
-            --notes "Automated build of $GITHUB_REF_NAME (commit $GITHUB_SHA)"
+            --notes "Automated build of $GITHUB_REF_NAME (commit $GITHUB_SHA)" \
+          || gh release upload "$GITHUB_REF_NAME" "${{ github.event.repository.name }}.apk" --clobber
 
       - name: Upload build artifact (manual runs)
         if: "!startsWith(github.ref, 'refs/tags/')"

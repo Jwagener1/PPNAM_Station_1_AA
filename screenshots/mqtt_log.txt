@@ -1,3 +1,0 @@
-# START 2026-05-22 13:52:35
-1779450936778|PPNAM/station_1/assignment_result|{"ts": "2026-05-22T11:55:36.477574+00:00", "deviceId": "scanner_1", "status": "Success", "sessionId": 1, "sourceDocumentNumber": "220008232", "palletRowId": 101, "palletCode": "220008232-RS1-D001", "tagId": "E28011C1A5000063F9658D50", "barcode": "8797290620", "actualPalletSequence": 1, "message": "Dynamic pallet 220008232-RS1-D001 created, tag E28011C1A5000063F9658D50 assigned, and barcode 8797290620 generated successfully."}
-# BARCODE status=Success pallet=220008232-RS1-D001 barcode=8797290620
